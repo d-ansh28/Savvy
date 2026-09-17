@@ -29,6 +29,25 @@ export default function Insights() {
   const insights = useQuery(api.insights.walletInsights, {});
   const walletState = useQuery(api.wallets.getWalletState, {});
 
+  /** Catalog-wide category analysis across ALL catalog cards (not just wallet).
+   * Hooks must run unconditionally — before any early returns. */
+  const ownedSlugs = useMemo(
+    () => (walletState ? walletState.cards.map((c) => c.slug) : []),
+    [walletState],
+  );
+  const gaps = useMemo(
+    () => categoryGapAnalysis(DEMO_CARDS, OFFERS, DEMO_MERCHANTS, ownedSlugs),
+    [ownedSlugs],
+  );
+  const topGaps = useMemo(
+    () => [...gaps].sort((a, b) => b.monthlyGap - a.monthlyGap).slice(0, 5),
+    [gaps],
+  );
+  const catalogWinners = useMemo(
+    () => gaps.map((g) => g.catalogBest),
+    [gaps],
+  );
+
   if (insights === undefined || walletState === undefined) {
     return (
       <AppShell usage={null}>
@@ -57,22 +76,6 @@ export default function Insights() {
 
   const { cardCount, activeCardCount, totalPoints, cashbackBalance, expiring, monthlySpend, topCategory } = insights;
   const inactive = cardCount - activeCardCount;
-
-  /** Catalog-wide category analysis across ALL catalog cards (not just wallet). */
-  const ownedSlugs = walletState.cards.map((c) => c.slug);
-  const gaps = useMemo(
-    () => categoryGapAnalysis(DEMO_CARDS, OFFERS, DEMO_MERCHANTS, ownedSlugs),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cardCount, activeCardCount],
-  );
-  const topGaps = useMemo(
-    () => [...gaps].sort((a, b) => b.monthlyGap - a.monthlyGap).slice(0, 5),
-    [gaps],
-  );
-  const catalogWinners = useMemo(
-    () => gaps.map((g) => g.catalogBest),
-    [gaps],
-  );
 
   // Deterministic annual-fee drag: fees of all owned cards
   const annualFees = walletState.cards.reduce(
