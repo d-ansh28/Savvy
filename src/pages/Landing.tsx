@@ -364,8 +364,8 @@ export default function Landing() {
             Stop leaving rewards on the table.
           </h2>
           <p className="max-w-xl text-sm opacity-80">
-            Free plan includes 3 AI optimizations per week. Upgrade any time
-            for unlimited runs and advanced analytics.
+            Free plan includes 3 AI optimizations every month. Upgrade any time
+            for more runs and advanced analytics.
           </p>
           <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent">
             <Link to="/auth?mode=signup">

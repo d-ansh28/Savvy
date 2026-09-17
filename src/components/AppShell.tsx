@@ -39,7 +39,7 @@ export function AppShell({
   const walletState = useQuery(api.wallets.getWalletState, {});
 
   const used = usage?.freeRunsUsed ?? walletState?.wallet.freeRunsUsed ?? 0;
-  const limit = usage?.limit ?? walletState?.freeLimit ?? 3;
+  const limit = usage?.limit ?? walletState?.runLimit ?? 3;
   const isPaid =
     (usage?.plan ?? walletState?.wallet.plan ?? "free") !== "free" &&
     (walletState?.wallet.subscriptionStatus ?? "none") === "active";
@@ -73,35 +73,21 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-3">
-            {isPaid ? (
-              <span className="nb-flat hidden bg-block-purple px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-card-foreground sm:block">
-                {walletState?.wallet.plan} plan
+            <button
+              onClick={() => navigate("/pricing")}
+              className={cn(
+                "nb-flat hidden cursor-pointer items-center gap-2 px-2.5 py-1.5 transition-colors hover:bg-secondary sm:flex",
+                isPaid ? "bg-block-purple text-card-foreground" : "bg-card",
+              )}
+              title="Monthly AI optimization usage"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {isPaid ? `${walletState?.wallet.plan ?? "paid"} plan` : "Free plan"}
               </span>
-            ) : (
-              <button
-                onClick={() => navigate("/pricing")}
-                className="nb-flat hidden cursor-pointer items-center gap-2 bg-card px-2.5 py-1.5 transition-colors hover:bg-secondary sm:flex"
-                title="Free plan usage"
-              >
-                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Free runs
-                </span>
-                <span className="tnum flex items-center gap-1">
-                  {Array.from({ length: limit }).map((_, i) => (
-                    <span
-                      key={i}
-                      className={cn(
-                        "size-2.5 border-2 border-line",
-                        i < remaining ? "bg-block-green" : "bg-secondary",
-                      )}
-                    />
-                  ))}
-                </span>
-                <span className="tnum text-xs font-bold">
-                  {remaining}/{limit}
-                </span>
-              </button>
-            )}
+              <span className="tnum text-xs font-bold">
+                {remaining}/{limit} runs left
+              </span>
+            </button>
             <Button
               variant="outline"
               size="sm"

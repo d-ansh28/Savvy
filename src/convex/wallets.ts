@@ -2,10 +2,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getDemoCard, getProgram } from "../lib/catalog";
+import { runsLimitForPlan } from "../lib/pricing";
 import {
-  FREE_RUNS_LIMIT,
   getBalancesInternal,
   getProfileInternal,
+  getWalletOrCreateInternal,
   getWalletReadonly,
   getUserCardsInternal,
   seedDemoDataInternal,
@@ -26,8 +27,29 @@ export const getWalletState = query({
       cards,
       balances,
       profile,
-      freeLimit: FREE_RUNS_LIMIT,
+      // Plan-aware monthly run limit, mirroring the server-side enforcement.
+      runLimit: runsLimitForPlan(wallet.plan),
     };
+  },
+});
+
+/**
+ * Activates a paid plan after payment. In production this would be called by
+ * a verified Razorpay webhook; for the MVP payment-link flow the client
+ * confirms activation after returning from the payment link.
+ */
+export const activatePlan = mutation({
+  args: { plan: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    if (!runsLimitForPlan(args.plan)) throw new Error("Unknown plan");
+    const wallet = await getWalletOrCreateInternal(ctx, userId);
+    await ctx.db.patch(wallet._id, {
+      plan: args.plan,
+      subscriptionStatus: args.plan === "free" ? "canceled" : "active",
+    });
+    return { ok: true as const, plan: args.plan };
   },
 });
 

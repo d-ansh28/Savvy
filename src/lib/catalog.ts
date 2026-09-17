@@ -9,6 +9,8 @@
  * user_provided / expired) drive what the UI is allowed to claim.
  */
 
+import { GENERATED_CARDS } from "./cardVariants";
+
 export type Network = "visa" | "mastercard" | "amex" | "rupay" | "diners";
 export type RewardKind = "cashback" | "points" | "miles";
 export type SourceStatus =
@@ -186,7 +188,7 @@ const DEMO_PROV = (date = "2026-09-15"): Provenance => ({
   last_verified: date,
 });
 
-export const DEMO_CARDS: DemoCard[] = [
+const CURATED_CARDS: DemoCard[] = [
   // ————— HDFC Bank —————
   {
     slug: "hdfc-millennia",
@@ -1670,6 +1672,12 @@ export const DEMO_PROGRAMS: RewardProgram[] = [
     provenance: DEMO_PROV(),
   },
 ];
+
+/**
+ * The full browsable catalog: hand-curated cards first, then the expanded
+ * generated set of real Indian card products (demo terms).
+ */
+export const DEMO_CARDS: DemoCard[] = [...CURATED_CARDS, ...GENERATED_CARDS];
 
 export function getDemoCard(slug: string): DemoCard | undefined {
   return DEMO_CARDS.find((c) => c.slug === slug);

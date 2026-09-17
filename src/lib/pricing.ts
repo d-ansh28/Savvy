@@ -1,40 +1,54 @@
 /**
- * Plan configuration — single source of truth for pricing.
- * Payment links come from env (Razorpay payment links); the app never
- * hardcodes secrets. In this Freebuff environment, env vars are provided
- * via the platform; missing links fall back to null and the UI shows a
- * "payment link not configured" note instead of a broken button.
+ * Plan configuration — single source of truth for pricing & limits.
+ *
+ * AI optimization runs are limited PER PLAN, tracked server-side per month.
+ * Payment links are Razorpay Payment Links; the app never holds secrets.
  */
 
 export interface Plan {
-  id: "starter" | "pro" | "max";
+  id: "free" | "starter" | "pro" | "studio";
   name: string;
   priceMonthly: number;
   block: string;
   highlight?: boolean;
+  /** AI optimization runs per month (server-enforced). */
+  runsPerMonth: number;
   features: string[];
   paymentLink: string | null;
 }
 
-function envLink(key: string): string | null {
-  const env = import.meta.env as Record<string, string | undefined>;
-  const raw = env[key] ?? env[`VITE_${key}`];
-  return raw && raw.startsWith("http") ? raw : null;
-}
-
 export const PLANS: Plan[] = [
+  {
+    id: "free",
+    name: "Free",
+    priceMonthly: 0,
+    block: "bg-secondary",
+    runsPerMonth: 3,
+    features: [
+      "3 AI optimizations / month",
+      "Wallet & card management (200+ card catalog)",
+      "Offers browser with expiry tracking",
+      "Expiring-reward alerts",
+      "Rewards vault snapshots",
+    ],
+    paymentLink: null,
+  },
   {
     id: "starter",
     name: "Starter",
-    priceMonthly: 200,
+    priceMonthly: 199,
     block: "bg-block-blue",
+    runsPerMonth: 30,
     features: [
-      "Unlimited purchase optimization",
-      "Wallet management",
-      "Basic reward insights",
-      "AI assistant",
+      "30 AI optimizations / month",
+      "Everything in Free",
+      "Unlimited wallet & cards",
+      "Purchase optimizer with full math breakdown",
+      "AI assistant (grounded, wallet-aware)",
+      "Rewards vault with redemption scenarios",
+      "Basic wallet insights",
     ],
-    paymentLink: envLink("RAZORPAY_STARTER_PAYMENT_LINK"),
+    paymentLink: "https://rzp.io/rzp/MpuNbgY",
   },
   {
     id: "pro",
@@ -42,30 +56,46 @@ export const PLANS: Plan[] = [
     priceMonthly: 499,
     block: "bg-block-lime",
     highlight: true,
+    runsPerMonth: 100,
     features: [
+      "100 AI optimizations / month",
       "Everything in Starter",
-      "Advanced wallet analytics",
-      "What-if simulations",
-      "Reward optimization",
-      "Expiry insights",
-      "Advanced AI analysis",
+      "Advanced wallet analytics & fee-drag analysis",
+      "What-if simulations (add card, shift spend)",
+      "Reward optimization suggestions",
+      "Expiry insights with value-at-risk math",
+      "Card-fit discovery across 200+ card catalog",
+      "Priority AI explanations",
     ],
-    paymentLink: envLink("RAZORPAY_PRO_PAYMENT_LINK"),
+    paymentLink: "https://rzp.io/rzp/T5rPvDQF",
   },
   {
-    id: "max",
-    name: "Max",
+    id: "studio",
+    name: "Studio",
     priceMonthly: 999,
     block: "bg-block-yellow",
+    runsPerMonth: 300,
     features: [
+      "300 AI optimizations / month",
       "Everything in Pro",
       "Advanced travel reward analysis",
-      "Advanced redemption scenarios",
+      "Advanced redemption scenarios across programs",
       "Multiple reward ecosystems",
-      "Advanced optimization tools",
+      "Advanced optimization tools & assumptions engine",
+      "Card upgrade tracking across the catalog",
+      "Premium support",
     ],
-    paymentLink: envLink("RAZORPAY_MAX_PAYMENT_LINK"),
+    paymentLink: "https://rzp.io/rzp/crthiD01",
   },
 ];
+
+export function getPlan(id: string): Plan | undefined {
+  return PLANS.find((p) => p.id === id);
+}
+
+/** Server-side limit lookup. Mirrors the plans above. */
+export function runsLimitForPlan(planId: string): number {
+  return getPlan(planId)?.runsPerMonth ?? 3;
+}
 
 export const FREE_RUNS_LIMIT_DISPLAY = 3;

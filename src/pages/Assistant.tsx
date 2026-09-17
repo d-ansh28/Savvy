@@ -191,7 +191,7 @@ function buildSnapshot(ws: WalletStateData, ins: InsightsData) {
     cashbackBalance: ins.cashbackBalance,
     totalPoints: ins.totalPoints,
     freeRunsUsed: ws.wallet.freeRunsUsed,
-    freeLimit: ws.freeLimit,
+    runLimit: ws.runLimit,
     plan: ws.wallet.plan,
   };
 }

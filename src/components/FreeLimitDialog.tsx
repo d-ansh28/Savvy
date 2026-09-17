@@ -41,13 +41,13 @@ export function FreeLimitDialog({
             Free optimization limit reached
           </DialogTitle>
           <DialogDescription>
-            You've used all 3 free runs this week. Upgrade for unlimited
-            purchase optimization and deeper analytics — plans are managed on
-            the pricing page and paid via Razorpay payment links.
+            You've used all 3 free runs this month. Starter gives 30 runs/mo,
+            Pro 100 runs/mo and Studio 300 runs/mo — paid via secure Razorpay
+            payment links.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-3">
-          {PLANS.map((plan) => (
+          {PLANS.filter((p) => p.priceMonthly > 0).map((plan) => (
             <div
               key={plan.id}
               className={`nb-card p-4 ${plan.highlight ? "relative" : ""}`}

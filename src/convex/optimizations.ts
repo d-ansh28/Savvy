@@ -11,6 +11,7 @@ import {
   optimizePurchase,
 } from "../lib/engine";
 import { DEMO_CARDS, OFFERS } from "../lib/catalog";
+import { runsLimitForPlan } from "../lib/pricing";
 
 /**
  * Deterministic purchase optimization with server-enforced free-run limits.
@@ -37,12 +38,10 @@ export const purchaseOptimize = action({
 
     const wallet = await ctx.runQuery(api.wallets.getWalletState, {});
     if (!wallet) throw new Error("Not signed in");
-    const usage = { freeRunsUsed: wallet.wallet.freeRunsUsed, limit: 3, plan: wallet.wallet.plan };
+    const limit = runsLimitForPlan(wallet.wallet.plan);
+    const usage = { freeRunsUsed: wallet.wallet.freeRunsUsed, limit, plan: wallet.wallet.plan };
 
-    if (
-      wallet.wallet.plan === "free" &&
-      wallet.wallet.freeRunsUsed >= 3
-    ) {
+    if (wallet.wallet.freeRunsUsed >= limit) {
       throw new Error("FREE_LIMIT_REACHED");
     }
 

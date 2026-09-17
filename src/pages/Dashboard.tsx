@@ -141,8 +141,8 @@ export default function Dashboard() {
     );
   }
 
-  const { wallet, cards, balances, profile, freeLimit } = walletState;
-  const remaining = Math.max(0, freeLimit - wallet.freeRunsUsed);
+  const { wallet, cards, balances, profile, runLimit } = walletState;
+  const remaining = Math.max(0, runLimit - wallet.freeRunsUsed);
   const isEmpty = cards.length === 0 && balances.length === 0;
 
   const totalPoints = balances.reduce((s, b) => s + b.points, 0);
@@ -244,13 +244,13 @@ export default function Dashboard() {
               <p className="text-sm font-medium">
                 {wallet.plan === "free" ? (
                   <>
-                    <span className="tnum font-bold">{remaining} of {freeLimit}</span>{" "}
-                    free optimizations remaining this week.
+                    <span className="tnum font-bold">{remaining} of {runLimit}</span>{" "}
+                    free optimizations remaining this month.
                   </>
                 ) : (
                   <>
                     <span className="font-bold capitalize">{wallet.plan}</span> plan
-                    — unlimited optimizations.
+                    — {runLimit} AI optimizations / month.
                   </>
                 )}
               </p>

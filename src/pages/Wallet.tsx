@@ -65,6 +65,7 @@ export default function Wallet() {
   const setUserProfile = useMutation(api.wallets.setUserProfile);
 
   const [filter, setFilter] = useState<FilterId>("all");
+  const [issuerFilter, setIssuerFilter] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [last4, setLast4] = useState("");
@@ -75,6 +76,11 @@ export default function Wallet() {
   const ownedSlugs = useMemo(
     () => new Set(walletState?.cards.map((c) => c.slug) ?? []),
     [walletState],
+  );
+
+  const ISSUER_OPTIONS = useMemo(
+    () => [...new Set(DEMO_CARDS.map((c) => c.issuer))].sort(),
+    [],
   );
 
   if (walletState === undefined) {
@@ -118,6 +124,7 @@ export default function Wallet() {
       !`${c.issuer} ${c.name}`.toLowerCase().includes(query.toLowerCase())
     )
       return false;
+    if (issuerFilter !== "all" && c.issuer !== issuerFilter) return false;
     switch (filter) {
       case "all":
         return true;
@@ -284,6 +291,19 @@ export default function Wallet() {
                   className="pl-9"
                 />
               </div>
+              <select
+                value={issuerFilter}
+                onChange={(e) => setIssuerFilter(e.target.value)}
+                className="nb-flat h-10 cursor-pointer bg-card px-3 text-sm font-medium"
+                aria-label="Filter by issuer"
+              >
+                <option value="all">All issuers ({ISSUER_OPTIONS.length})</option>
+                {ISSUER_OPTIONS.map((iss) => (
+                  <option key={iss} value={iss}>
+                    {iss}
+                  </option>
+                ))}
+              </select>
               <Input
                 value={last4}
                 onChange={(e) => setLast4(e.target.value.replace(/\D/g, "").slice(0, 4))}

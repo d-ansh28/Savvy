@@ -240,7 +240,7 @@ export default function Optimize() {
   }
 
   const used = usage?.freeRunsUsed ?? walletState?.wallet.freeRunsUsed ?? 0;
-  const limit = usage?.limit ?? walletState?.freeLimit ?? 3;
+  const limit = usage?.limit ?? walletState?.runLimit ?? 3;
   const remaining = Math.max(0, limit - used);
 
   return (
@@ -262,8 +262,8 @@ export default function Optimize() {
         {/* usage strip */}
         <div className="nb-flat flex flex-wrap items-center justify-between gap-2 bg-card px-4 py-2.5 text-sm">
           <span>
-            <span className="tnum font-bold">{remaining}</span> of {limit} free
-            optimizations remaining this week
+            <span className="tnum font-bold">{remaining}</span> of {limit} AI
+            optimizations remaining this month
           </span>
           <Button asChild variant="ghost" size="sm">
             <Link to="/pricing">

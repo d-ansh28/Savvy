@@ -1,17 +1,15 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getDemoCard, getProgram } from "../lib/catalog";
+import { runsLimitForPlan } from "../lib/pricing";
 
 export const FREE_RUNS_LIMIT = 3;
 
 function currentPeriodStart(): string {
   const now = new Date();
-  // getUTCDay(): 0=Sunday…6=Saturday → convert so Monday = 0
-  const day = (now.getUTCDay() + 6) % 7;
-  const monday = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day),
-  );
-  return monday.toISOString().slice(0, 10);
+  // Monthly usage period (YYYY-MM) — resets on the 1st.
+  const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  return ym;
 }
 
 type WalletDoc = Doc<"wallets">;
@@ -43,14 +41,14 @@ export async function getWalletReadonly(
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .unique();
   if (existing) {
-    // Surface the rolled-over usage week without writing in a query context.
+    // Surface the rolled-over usage month without writing in a query context.
     const period = currentPeriodStart();
     if (existing.periodStart !== period) {
       return { ...existing, periodStart: period, freeRunsUsed: 0 };
     }
     return existing;
   }
-  return { ...DEFAULT_WALLET, userId };
+  return { ...DEFAULT_WALLET, userId, periodStart: currentPeriodStart() };
 }
 
 /** Read-or-create wallet. Only callable from mutation/action-write contexts. */
@@ -148,22 +146,21 @@ export async function seedDemoDataInternal(ctx: MutationCtx, userId: string) {
   return { seeded: true };
 }
 
-/** Consumes one free run, enforcing the weekly cap and plan overrides. */
+/** Consumes one free run, enforcing the monthly cap for the user's plan. */
 export async function consumeRunInternal(
   ctx: MutationCtx,
   userId: string,
   runCost: number,
 ): Promise<{ ok: boolean; freeRunsUsed: number; limit: number; plan: string }> {
   const wallet = await getWalletOrCreateInternal(ctx, userId);
-  const planAllowsUnlimited = wallet.plan !== "free" && wallet.subscriptionStatus === "active";
-  if (planAllowsUnlimited) {
-    return { ok: true, freeRunsUsed: wallet.freeRunsUsed, limit: FREE_RUNS_LIMIT, plan: wallet.plan };
-  }
-  if (wallet.freeRunsUsed + runCost > FREE_RUNS_LIMIT) {
-    return { ok: false, freeRunsUsed: wallet.freeRunsUsed, limit: FREE_RUNS_LIMIT, plan: wallet.plan };
+  const limit = runsLimitForPlan(wallet.plan);
+  const planAllowsUnlimited = false; // every plan has a monthly cap; Free resets monthly
+  void planAllowsUnlimited;
+  if (wallet.freeRunsUsed + runCost > limit) {
+    return { ok: false, freeRunsUsed: wallet.freeRunsUsed, limit, plan: wallet.plan };
   }
   await ctx.db.patch(wallet._id, { freeRunsUsed: wallet.freeRunsUsed + runCost });
-  return { ok: true, freeRunsUsed: wallet.freeRunsUsed + runCost, limit: FREE_RUNS_LIMIT, plan: wallet.plan };
+  return { ok: true, freeRunsUsed: wallet.freeRunsUsed + runCost, limit, plan: wallet.plan };
 }
 
 /** Refund on server-side failure so failures don't burn a free run. */
