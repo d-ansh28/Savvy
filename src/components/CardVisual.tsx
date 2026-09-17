@@ -304,6 +304,11 @@ export function CardVisual({
                 UPI
               </span>
             )}
+            {isMetal && (
+              <span className="rounded-sm border border-white/40 bg-black/30 px-1.5 py-0.5 text-[8px] font-black tracking-widest text-white/90">
+                METAL
+              </span>
+            )}
           </div>
         </div>
 
@@ -351,11 +356,6 @@ export function CardVisual({
           <path d="M11.5 17a8 8 0 0 0 0-10" />
           <circle cx="5.5" cy="12" r="1.5" fill="white" />
         </svg>
-        {isMetal && (
-          <div className="absolute top-3 right-3 rounded-sm border border-white/40 bg-black/30 px-1.5 py-0.5 text-[8px] font-black tracking-widest text-white/90">
-            METAL
-          </div>
-        )}
         {/* keep issuer name discoverable on co-brand faces */}
         {face?.coBrand && !face.wordmark?.toLowerCase().includes(issuerName.toLowerCase()) && (
           <p className="absolute right-3 bottom-14 text-[9px] font-bold uppercase tracking-widest opacity-70">
