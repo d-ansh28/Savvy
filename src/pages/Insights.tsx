@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/AppShell";
-import { CardVisualMini } from "@/components/CardVisual";
+import { CardVisual } from "@/components/CardVisual";
 import { categoryGapAnalysis } from "@/lib/engine";
 import {
   DEMO_CARDS,
@@ -227,10 +227,11 @@ export default function Insights() {
                         </p>
                       </div>
 
-                      {/* Catalog winner */}
+                      {/* Catalog winner — same face as wallet cards */}
                       <div className="flex flex-1 items-center gap-4">
-                        <CardVisualMini
+                        <CardVisual
                           card={g.catalogBest.card}
+                          compact
                           className="w-44 shrink-0"
                         />
                         <div className="min-w-0">
@@ -250,8 +251,9 @@ export default function Insights() {
                       <div className="flex flex-1 items-center gap-3">
                         {have ? (
                           <>
-                            <CardVisualMini
+                            <CardVisual
                               card={have.card}
+                              compact
                               className="w-44 shrink-0"
                             />
                             <div className="min-w-0">
@@ -265,7 +267,7 @@ export default function Insights() {
                             </div>
                           </>
                         ) : (
-                          <div className="nb-flat flex aspect-[8/5] w-44 shrink-0 items-center justify-center bg-secondary/60 px-3 text-center text-xs text-muted-foreground">
+                          <div className="nb-flat flex h-32 w-44 shrink-0 items-center justify-center bg-secondary/60 px-3 text-center text-xs text-muted-foreground">
                             Nothing earns here yet
                           </div>
                         )}
