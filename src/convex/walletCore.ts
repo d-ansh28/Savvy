@@ -1,31 +1,61 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-
-// Union of query and mutation contexts — write helpers only use the intersection
-// via runtime guards below. Convex's ctx.db for queries is read-only.
 import { getDemoCard, getProgram } from "../lib/catalog";
 
 export const FREE_RUNS_LIMIT = 3;
 
 function currentPeriodStart(): string {
   const now = new Date();
-  const day = (now.getUTCDay() + 6) % 7; // Monday = 0
+  // getUTCDay(): 0=Sunday…6=Saturday → convert so Monday = 0
+  const day = (now.getUTCDay() + 6) % 7;
   const monday = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day),
   );
   return monday.toISOString().slice(0, 10);
 }
 
-type WalletDoc = Doc<"wallets">;type AnyCtx = QueryCtx | MutationCtx;
+type WalletDoc = Doc<"wallets">;
 
-function hasWriteDb(
-  ctx: AnyCtx,
-): ctx is (QueryCtx & { db: MutationCtx["db"] }) | MutationCtx {
-  return typeof (ctx.db as { patch?: unknown }).patch === "function";
+/**
+ * Default wallet returned when a user hasn't been initialized yet.
+ * Queries are read-only in Convex, so the wallet row is created lazily by the
+ * first mutation (seed / add card / optimize) instead of the query itself.
+ */
+export const DEFAULT_WALLET: WalletDoc = {
+  _id: "default" as unknown as WalletDoc["_id"],
+  _creationTime: 0,
+  userId: "",
+  plan: "free",
+  subscriptionStatus: "none",
+  freeRunsUsed: 0,
+  periodStart: "",
+  seedLoaded: false,
+  updatedAt: 0,
+};
+
+/** Read wallet if it exists (safe in queries — never writes). */
+export async function getWalletReadonly(
+  ctx: QueryCtx | MutationCtx,
+  userId: string,
+): Promise<WalletDoc> {
+  const existing = await ctx.db
+    .query("wallets")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique();
+  if (existing) {
+    // Surface the rolled-over usage week without writing in a query context.
+    const period = currentPeriodStart();
+    if (existing.periodStart !== period) {
+      return { ...existing, periodStart: period, freeRunsUsed: 0 };
+    }
+    return existing;
+  }
+  return { ...DEFAULT_WALLET, userId };
 }
 
+/** Read-or-create wallet. Only callable from mutation/action-write contexts. */
 export async function getWalletOrCreateInternal(
-  ctx: AnyCtx,
+  ctx: MutationCtx,
   userId: string,
 ): Promise<WalletDoc> {
   const existing = await ctx.db
@@ -35,13 +65,12 @@ export async function getWalletOrCreateInternal(
   if (existing) {
     // Weekly rollover of free-run usage
     const period = currentPeriodStart();
-    if (existing.periodStart !== period && hasWriteDb(ctx)) {
+    if (existing.periodStart !== period) {
       await ctx.db.patch(existing._id, { periodStart: period, freeRunsUsed: 0 });
       return { ...existing, periodStart: period, freeRunsUsed: 0 };
     }
     return existing;
   }
-  if (!hasWriteDb(ctx)) throw new Error("Wallet creation requires a mutation context");
   const id = await ctx.db.insert("wallets", {
     userId,
     plan: "free",

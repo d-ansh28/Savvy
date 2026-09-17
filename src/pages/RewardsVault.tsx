@@ -276,7 +276,7 @@ export default function RewardsVault() {
               <Sparkles className="mt-0.5 size-3.5 shrink-0" />
               Redemption values are demo estimates computed deterministically
               from the program's stated per-point value — never from live
-              partner data. PerkPilot will not guess where data is missing.
+              partner data. Savvy will not guess where data is missing.
             </p>
           </div>
         )}

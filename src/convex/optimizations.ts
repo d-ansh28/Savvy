@@ -47,6 +47,10 @@ export const purchaseOptimize = action({
     }
 
     const walletCards = wallet.cards;
+    if (walletCards.filter((c) => c.active).length === 0) {
+      // Don't burn a free run on a wallet that can't produce a result.
+      throw new Error("NO_ACTIVE_CARDS");
+    }
     const monthlySpendAlready = Math.round(wallet.profile?.monthlySpend ?? 0);
 
     const purchase: PurchaseInput = {
@@ -81,7 +85,7 @@ export const purchaseOptimize = action({
   },
 });
 
-const SYSTEM_PROMPT = `You are PerkPilot AI's purchase-explainer. You receive a DETERMINISTIC calculation result from our rules engine and must explain it to the user in plain English.
+const SYSTEM_PROMPT = `You are Savvy's purchase-explainer. You receive a DETERMINISTIC calculation result from our rules engine and must explain it to the user in plain English.
 
 Rules you MUST follow:
 - NEVER invent card benefits, rates, caps, offers or point values. Only use the JSON provided.

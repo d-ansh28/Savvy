@@ -117,7 +117,7 @@ export default function Pricing() {
           Plan configuration is read from backend settings; payment links are
           injected via environment (RAZORPAY_STARTER_PAYMENT_LINK,
           RAZORPAY_PRO_PAYMENT_LINK, RAZORPAY_MAX_PAYMENT_LINK). No card
-          details are stored by PerkPilot.
+          details are stored by Savvy.
         </p>
       </div>
     </AppShell>

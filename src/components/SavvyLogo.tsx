@@ -1,7 +1,7 @@
 import { Zap } from "lucide-react";
 import { Link } from "react-router";
 
-export function PerkLogo({
+export function SavvyLogo({
   to = "/",
   size = "md",
   tagline = false,
@@ -24,11 +24,11 @@ export function PerkLogo({
       </span>
       <span className="flex flex-col leading-none">
         <span className={`font-display ${text} font-bold tracking-tight`}>
-          PerkPilot<span className="text-muted-foreground"> AI</span>
+          Savvy
         </span>
         {tagline && (
-          <span className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Make every payment worth more
+          <span className="mt-1 max-w-56 text-[10px] leading-snug font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+            Spend smart. Earn more.
           </span>
         )}
       </span>

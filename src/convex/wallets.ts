@@ -6,7 +6,7 @@ import {
   FREE_RUNS_LIMIT,
   getBalancesInternal,
   getProfileInternal,
-  getWalletOrCreateInternal,
+  getWalletReadonly,
   getUserCardsInternal,
   seedDemoDataInternal,
 } from "./walletCore";
@@ -16,7 +16,8 @@ export const getWalletState = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
-    const wallet = await getWalletOrCreateInternal(ctx, userId);
+    // Read-only: the wallet row is created lazily by the first mutation.
+    const wallet = await getWalletReadonly(ctx, userId);
     const cards = await getUserCardsInternal(ctx, userId);
     const balances = await getBalancesInternal(ctx, userId);
     const profile = await getProfileInternal(ctx, userId);

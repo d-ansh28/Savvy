@@ -1,11 +1,11 @@
 {
-  "name": "freebuff.com application",
-  "short_name": "freebuff.com",
-  "description": "freebuff.com application",
+  "name": "Savvy",
+  "short_name": "Savvy",
+  "description": "AI-powered platform that finds the smartest way to spend, save, earn, and redeem rewards across your cards, payment methods, deals, and loyalty points.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#faf8f2",
+  "theme_color": "#c8f04e",
   "icons": [
     {
       "src": "/logo.png",

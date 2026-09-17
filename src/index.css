@@ -42,7 +42,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* PerkPilot neobrutalism color blocks + display font */
+/* Savvy neobrutalism color blocks + display font */
 @theme inline {
   --color-line: var(--nb-line);
   --color-block-lime: var(--block-lime);

@@ -1,5 +1,5 @@
 /**
- * PerkPilot deterministic reward engine.
+ * Savvy deterministic reward engine.
  *
  * ALL financial arithmetic lives here — never in the UI, never in an LLM.
  * The engine is pure: same wallet + purchase => same result.

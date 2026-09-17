@@ -1,5 +1,5 @@
 /**
- * Demo catalog data for PerkPilot AI.
+ * Demo catalog data for Savvy.
  *
  * Cards, reward rules, offers, merchants and programs are DATA, not JSX.
  * This keeps the UI data-driven and the calculation engine separate from

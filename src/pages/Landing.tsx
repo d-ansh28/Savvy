@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PerkLogo } from "@/components/PerkLogo";
+import { SavvyLogo } from "@/components/SavvyLogo";
 import { CardVisual } from "@/components/CardVisual";
 import { getDemoCard } from "@/lib/catalog";
 import { useAuth } from "@/hooks/use-auth";
@@ -58,7 +58,7 @@ export default function Landing() {
       {/* NAV */}
       <header className="border-b-2 border-line bg-background">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6">
-          <PerkLogo />
+          <SavvyLogo />
           <div className="flex items-center gap-3">
             <a
               href="#how"
@@ -114,10 +114,11 @@ export default function Landing() {
             transition={{ ...fadeUp.transition, delay: 0.12 }}
             className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground"
           >
-            PerkPilot AI analyzes your cards, rewards, offers and spending to
-            help you get more value from every purchase. Know exactly which
-            card to use, what you'll earn, and what it actually costs you —
-            before you pay.
+            Savvy is the AI-powered platform that finds the smartest way to
+            spend, save, earn, and redeem rewards across your cards, payment
+            methods, deals, and loyalty points. Know exactly which card to
+            use, what you'll earn, and what it actually costs you — before
+            you pay.
           </motion.p>
           <motion.div
             {...fadeUp}
@@ -247,7 +248,7 @@ export default function Landing() {
             Three steps. Zero guesswork.
           </h2>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            PerkPilot evaluates every payment method you own against the thing
+            Savvy evaluates every payment method you own against the thing
             you're about to buy — then shows the math, not just a verdict.
           </p>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
@@ -376,7 +377,7 @@ export default function Landing() {
 
       <footer className="border-t-2 border-line bg-card">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <PerkLogo size="sm" />
+          <SavvyLogo size="sm" />
           <p className="text-xs text-muted-foreground">
             Demo product. All card data, rates and offers are illustrative —
             not affiliated with any issuer. We never store card numbers, CVV,

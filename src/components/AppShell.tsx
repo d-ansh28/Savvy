@@ -11,7 +11,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PerkLogo } from "@/components/PerkLogo";
+import { SavvyLogo } from "@/components/SavvyLogo";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
@@ -50,7 +50,7 @@ export function AppShell({
       <header className="sticky top-0 z-40 border-b-2 border-line bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-6">
-            <PerkLogo to="/dashboard" size="sm" />
+            <SavvyLogo to="/dashboard" size="sm" />
             <nav className="hidden items-center gap-1 md:flex">
               {NAV.map(({ to, label, icon: Icon }) => (
                 <NavLink
@@ -143,7 +143,7 @@ export function AppShell({
       </main>
       <footer className="border-t-2 border-line bg-card">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p className="font-semibold">PerkPilot AI — demo build</p>
+          <p className="font-semibold">Savvy — demo build</p>
           <p>
             All rates, offers and balances are illustrative demo data. Never
             provides CVV, PIN, OTP or bank credentials.

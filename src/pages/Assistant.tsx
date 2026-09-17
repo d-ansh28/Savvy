@@ -28,7 +28,7 @@ export default function Assistant() {
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: "assistant",
-      text: "Hi! I'm PerkPilot AI. I can explain your wallet, cards and rewards using your actual data. I never invent rates or do hidden math — numbers come from the deterministic engine. What would you like to know?",
+      text: "Hi! I'm Savvy. I can explain your wallet, cards and rewards using your actual data. I never invent rates or do hidden math — numbers come from the deterministic engine. What would you like to know?",
     },
   ]);
   const [input, setInput] = useState("");

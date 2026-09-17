@@ -13,7 +13,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { PerkLogo } from "@/components/PerkLogo";
+import { SavvyLogo } from "@/components/SavvyLogo";
 
 import { useAuth } from "@/hooks/use-auth";
 import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
@@ -108,7 +108,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     <div className="nb-grid-bg flex min-h-screen flex-col">
       <header className="border-b-2 border-line bg-background">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center px-4 sm:px-6">
-          <PerkLogo size="sm" />
+          <SavvyLogo size="sm" />
         </div>
       </header>
 

@@ -210,6 +210,9 @@ export default function Optimize() {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("FREE_LIMIT_REACHED")) {
         setLimitOpen(true);
+      } else if (msg.includes("NO_ACTIVE_CARDS")) {
+        toast.error("Add an active card to your wallet first.");
+        navigate("/wallet");
       } else {
         toast.error(msg || "Optimization failed. Please try again.");
       }
@@ -464,7 +467,7 @@ export default function Optimize() {
                     <div className="mt-6 border-t-2 border-dashed border-line/50 pt-5">
                       {aiLoading && (
                         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 className="size-4 animate-spin" /> PerkPilot AI
+                          <Loader2 className="size-4 animate-spin" /> Savvy
                           is grounding the explanation in your numbers…
                         </p>
                       )}
