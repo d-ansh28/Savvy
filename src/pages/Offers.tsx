@@ -5,8 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/AppShell";
+import { CardVisual } from "@/components/CardVisual";
+import { bestCardsForPurchase } from "@/lib/engine";
 import {
+  DEMO_CARDS,
   DEMO_MERCHANTS,
+  OFFERS,
   type Offer,
   categoryEmoji,
   getMerchant,
@@ -51,22 +55,55 @@ export default function Offers() {
     [today], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const matched = useMemo(() => {
-    const amt = Number(amount);
-    if (!merchant.trim() || !Number.isFinite(amt) || amt <= 0) return null;
-    const merch = DEMO_MERCHANTS.find(
-      (m) =>
-        m.name.toLowerCase() === merchant.trim().toLowerCase() ||
-        m.aliases.some((a) => a.includes(merchant.trim().toLowerCase())),
+  const merch = useMemo(() => {
+    const q = merchant.trim().toLowerCase();
+    if (!q) return null;
+    return (
+      DEMO_MERCHANTS.find(
+        (m) =>
+          m.name.toLowerCase() === q || m.aliases.some((a) => a.includes(q)),
+      ) ?? null
     );
-    if (!merch) return { merchantName: merchant.trim(), offers: [] as Offer[] };
+  }, [merchant]);
+
+  const amt = Number(amount) || 0;
+  const canMatch = !!merch && amt > 0;
+
+  /** Full-catalog scan: best cards for this merchant across ALL 200+ cards. */
+  const catalogBest = useMemo(() => {
+    if (!merch || amt <= 0) return null;
+    const rows = bestCardsForPurchase(
+      {
+        merchantName: merch.name,
+        amount: amt,
+        category: merch.category === "other" ? "shopping" : merch.category,
+        dateISO: today,
+        channel: "online",
+      },
+      DEMO_CARDS,
+      active,
+      DEMO_MERCHANTS,
+      [],
+      6,
+    );
+    const merchantOffers = active.filter((o) => o.merchantId === merch.id);
+    const issuers = [
+      ...new Set(
+        merchantOffers.flatMap((o) => (o.eligibleIssuers ?? []).map((i) => i.split(" ")[0])),
+      ),
+    ].filter(Boolean);
+    return { rows, merchantOffers, issuers };
+  }, [merch, amt, active, today]);
+
+  const matched = useMemo(() => {
+    if (!merch || amt <= 0) return null;
     return {
       merchantName: merch.name,
       offers: active
         .filter((o) => o.merchantId === merch.id && o.minAmount <= amt)
         .sort((a, b) => offerValue(b, amt) - offerValue(a, amt)),
     };
-  }, [merchant, amount, active]);
+  }, [merch, amt, active]);
 
   const visible = useMemo(() => {
     if (filter === "All") return active;
@@ -90,7 +127,8 @@ export default function Offers() {
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Merchant discounts, bank offers, coupons and cashback — all demo
             data, clearly labeled. Enter a planned purchase to see which offers
-            may apply.
+            may apply — and which of all {DEMO_CARDS.length} catalog cards
+            earns the most at this merchant.
           </p>
         </div>
 
@@ -134,6 +172,72 @@ export default function Offers() {
               </Link>
             </Button>
           </div>
+
+          {canMatch && catalogBest && catalogBest.rows.length > 0 && (
+            <div className="mt-5 border-t pt-4">
+              <h3 className="text-sm font-bold">
+                Best catalog cards at {merch!.name} on ₹{amt.toLocaleString("en-IN")}
+              </h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Ranked across all {DEMO_CARDS.length} cards in the Savvy catalog —
+                not just the ones in your wallet.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {catalogBest.rows.map((row, i) => (
+                  <li
+                    key={row.slug}
+                    className="nb-flat bg-secondary/60 flex flex-wrap items-center gap-3 p-3"
+                  >
+                    <span className="tnum w-5 text-center text-xs font-black text-muted-foreground">
+                      {i + 1}
+                    </span>
+                    <div className="w-24 shrink-0">
+                      <CardVisual card={row.card} compact />
+                    </div>
+                    <div className="min-w-[9rem] flex-1">
+                      <p className="text-sm leading-tight font-bold">{row.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {row.issuer} · {row.rewardType === "cashback" ? "Cashback" : row.rewardType === "miles" ? "Miles" : "Points"}
+                        {row.annualFee === 0 ? " · LTF" : ` · ₹${row.annualFee}/yr`}
+                      </p>
+                      {row.bestRuleNote && (
+                        <p className="mt-0.5 text-[11px] font-medium text-foreground/70">
+                          {row.bestRuleNote}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="tnum text-sm font-black">
+                        ₹{Math.round(row.totalBenefit).toLocaleString("en-IN")}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                        est. total benefit
+                      </p>
+                      <p className="tnum text-[11px] text-muted-foreground">
+                        ₹{Math.round(row.nowBenefit).toLocaleString("en-IN")} now + ₹
+                        {Math.round(row.deferredValue).toLocaleString("en-IN")} points
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {catalogBest.issuers.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Bank offers from:
+                  </span>
+                  {catalogBest.issuers.map((issuer) => (
+                    <span
+                      key={issuer}
+                      className="nb-flat bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                    >
+                      {issuer}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {matched && (
             <div className="mt-4">
@@ -251,10 +355,8 @@ export default function Offers() {
 
 function OFFERS_ACTIVE(): Offer[] {
   const today = todayISO();
-  return ALL_OFFERS.filter((o) => today >= o.startsAt && today <= o.endsAt);
+  return OFFERS.filter((o) => today >= o.startsAt && today <= o.endsAt);
 }
-
-import { OFFERS as ALL_OFFERS } from "@/lib/catalog";
 
 function offerValue(o: Offer, amount: number): number {
   const raw = o.percent ? amount * o.percent : (o.flat ?? 0);

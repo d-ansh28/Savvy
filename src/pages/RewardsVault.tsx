@@ -20,7 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/AppShell";
-import { DEMO_PROGRAMS, getProgram } from "@/lib/catalog";
+import { CardVisual } from "@/components/CardVisual";
+import { bestEarnersForRewardKind } from "@/lib/engine";
+import { DEMO_CARDS, DEMO_PROGRAMS, getProgram } from "@/lib/catalog";
 
 interface Scenario {
   label: string;
@@ -263,6 +265,10 @@ export default function RewardsVault() {
                 : program?.kind === "miles"
                   ? "miles"
                   : "pts";
+            /** Which catalog cards earn this reward currency fastest? */
+            const earners = program
+              ? bestEarnersForRewardKind(program.kind, DEMO_CARDS, 4)
+              : [];
             const calcOpen = calcProgram === b.programId;
             const calcValue = Math.round(Number(calcPoints));
             const calcValid =
@@ -433,6 +439,53 @@ export default function RewardsVault() {
                           })}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Earn this currency fastest — full catalog comparison */}
+                {earners.length > 0 && (
+                  <div className="mt-5 border-t pt-4">
+                    <p className="font-display text-sm font-bold">
+                      Earn {program?.kind === "cashback" ? "cashback" : program?.kind === "miles" ? "miles" : "points"} fastest — across all{" "}
+                      {DEMO_CARDS.length} catalog cards
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Best base earn rate per ₹10,000 spend at each card's demo
+                      rate. Owned cards are marked.
+                    </p>
+                    <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {earners.map((e, i) => (
+                        <li
+                          key={e.slug}
+                          className="nb-flat bg-secondary/60 flex items-center gap-3 p-3"
+                        >
+                          <span className="tnum w-4 text-center text-xs font-black text-muted-foreground">
+                            {i + 1}
+                          </span>
+                          <div className="w-16 shrink-0">
+                            <CardVisual card={e.card} compact />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold">
+                              {e.name}
+                              {e.upi ? " · UPI" : ""}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {e.issuer} · {e.rateLabel}
+                              {e.annualFee === 0 ? " · LTF" : ` · ₹${e.annualFee}/yr`}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="tnum text-sm font-black">
+                              ₹{e.valuePer10k.toLocaleString("en-IN")}
+                            </p>
+                            <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                              per ₹10k
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 

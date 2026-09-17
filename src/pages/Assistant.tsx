@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppShell } from "@/components/AppShell";
 import { cn } from "@/lib/utils";
+import { bestCardsForPurchase, categoryGapAnalysis } from "@/lib/engine";
+import {
+  DEMO_CARDS,
+  DEMO_MERCHANTS,
+  OFFERS,
+  type Category,
+} from "@/lib/catalog";
 
 interface Msg {
   role: "user" | "assistant";
@@ -46,7 +53,7 @@ export default function Assistant() {
     setMessages((m) => [...m, { role: "user", text: question }]);
     setBusy(true);
 
-    // Deterministic wallet context — always attached, never hallucinated.
+    // Deterministic wallet + full-catalog context — always attached, never hallucinated.
     const ws = walletState ?? null;
     const ins = insights ?? null;
     const snapshot = ws && ins ? buildSnapshot(ws, ins) : null;
@@ -57,7 +64,7 @@ export default function Assistant() {
           context: "freeform wallet question",
           walletSnapshot: snapshot,
           guidelines:
-            "Answer ONLY from walletSnapshot. If the answer needs data that is not in the snapshot (specific merchant rates, live offers, partner transfers), say: Unable to calculate accurately with the available information.",
+            "Answer ONLY from walletSnapshot (which includes a `catalog` section ranking the best card per category across the full demo catalog). Use catalog.bestPerCategory when the user asks which card is best for a category even if they don't own it. If the answer needs data that is not in the snapshot (live offers, partner transfers, real issuer terms), say: Unable to calculate accurately with the available information.",
         },
         question,
       });
@@ -177,6 +184,26 @@ type InsightsData = {
 };
 
 function buildSnapshot(ws: WalletStateData, ins: InsightsData) {
+  // Full-catalog deterministic context so the AI can answer "which card is
+  // best for X" across ALL cards — not just the wallet.
+  const ownedSlugs = ws.cards.map((c) => c.slug);
+  const gaps = categoryGapAnalysis(DEMO_CARDS, OFFERS, DEMO_MERCHANTS, ownedSlugs);
+  const catalog = {
+    totalCards: DEMO_CARDS.length,
+    bestPerCategory: gaps.map((g) => ({
+      category: g.categoryLabel,
+      bestCard: g.catalogBest.name,
+      issuer: g.catalogBest.issuer,
+      estBenefit: Math.round(g.catalogBest.totalBenefit),
+      sampleAmount: g.sampleAmount,
+      ownedAlternative: g.ownedBest?.name ?? null,
+      monthlyGapIfUpgraded: Math.round(g.monthlyGap),
+    })),
+    topUpgrades: [...gaps]
+      .sort((a, b) => b.monthlyGap - a.monthlyGap)
+      .slice(0, 3)
+      .map((g) => `${g.categoryLabel}: ${g.catalogBest.name} (+₹${Math.round(g.monthlyGap)}/mo vs your best)`),
+  };
   return {
     cards: ws.cards.map((c) => c.slug),
     activeCards: ws.cards.filter((c) => c.active).map((c) => c.slug),
@@ -193,6 +220,7 @@ function buildSnapshot(ws: WalletStateData, ins: InsightsData) {
     freeRunsUsed: ws.wallet.freeRunsUsed,
     runLimit: ws.runLimit,
     plan: ws.wallet.plan,
+    catalog,
   };
 }
 
@@ -204,6 +232,19 @@ function groundedFallback(
   const q = question.toLowerCase();
   const lines: string[] = [];
 
+  // Catalog-wide category matching for "best card for X" questions.
+  const CATEGORY_HINTS: [keywords: string[], category: Category][] = [
+    [["dining", "food", "restaurant", "swiggy", "zomato"], "dining"],
+    [["grocer", "bigbasket", "blinkit", "zepto", "instamart"], "groceries"],
+    [["amazon", "flipkart", "ecommerce", "online shop"], "ecommerce"],
+    [["flight", "air", "indigo", "vistara"], "flights"],
+    [["hotel", "stay", "oyo", "airbnb"], "hotels"],
+    [["fuel", "petrol", "diesel", "hp", "bpcl", "iocl"], "fuel"],
+    [["movie", "netflix", "subscription", "ott"], "subscriptions"],
+    [["shop", "myntra", "ajio", "tata cliq"], "shopping"],
+  ];
+  const hinted = CATEGORY_HINTS.find(([kws]) => kws.some((k) => q.includes(k)));
+
   if (q.includes("wasting") || q.includes("expir")) {
     if (ins.expiring.length > 0) {
       lines.push(
@@ -214,17 +255,43 @@ function groundedFallback(
     } else {
       lines.push("Nothing in your wallet is flagged as expiring in the next 60 days.");
     }
-  } else if (q.includes("dining")) {
-    lines.push(
-      ws.cards.some((c) => c.slug === "amex-mr" && c.active)
-        ? "For dining, Amex Membership Rewards Gold earns 10x points up to a monthly cap in the demo catalog — run an optimization on a dining purchase to see the exact math."
-        : "None of your active cards has a boosted dining rate in the demo catalog — the base rate applies. Consider adding a dining card.",
+  }
+
+  if (hinted) {
+    const category = hinted[1];
+    const rows = bestCardsForPurchase(
+      {
+        merchantName: "",
+        amount: 10000,
+        category,
+        dateISO: new Date().toISOString().slice(0, 10),
+        channel: "online",
+      },
+      DEMO_CARDS,
+      OFFERS,
+      DEMO_MERCHANTS,
+      ws.cards.map((c) => c.slug),
+      3,
     );
+    if (rows.length > 0) {
+      const owned = rows.find((r) => r.owned);
+      lines.push(
+        `Across all ${DEMO_CARDS.length} catalog cards, the top picks for ${category} spend are: ${rows
+          .map(
+            (r, i) =>
+              `${i + 1}. ${r.name} (${r.issuer})${r.owned ? " — in your wallet" : ""} — est. ₹${Math.round(r.totalBenefit).toLocaleString("en-IN")} on ₹10,000`,
+          )
+          .join(" ")}.${owned ? "" : " None of these are in your wallet yet — adding the top one could lift your returns."}`,
+      );
+      lines.push(
+        "Run a Purchase Optimization on a specific amount to get the exact math with caps and offers applied.",
+      );
+    }
   } else if (q.includes("points") || q.includes("redeem")) {
     lines.push(
       `You're tracking ${ins.totalPoints.toLocaleString("en-IN")} total points across ${ws.balances.length} program(s), including ₹${ins.cashbackBalance.toLocaleString("en-IN")} cashback. Open the Rewards Vault for per-program redemption scenarios.`,
     );
-  } else {
+  } else if (lines.length === 0) {
     lines.push(
       `You currently have ${ws.cards.length} card(s) and ${ins.totalPoints.toLocaleString("en-IN")} points tracked. For a specific purchase, use the Purchase Optimizer — it evaluates every card's rates, caps and eligible offers deterministically.`,
     );

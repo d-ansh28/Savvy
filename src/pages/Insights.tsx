@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { Link } from "react-router";
 import {
@@ -14,7 +15,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/AppShell";
-import { getDemoCard, getProgram } from "@/lib/catalog";
+import { CardVisual } from "@/components/CardVisual";
+import { categoryGapAnalysis } from "@/lib/engine";
+import {
+  DEMO_CARDS,
+  DEMO_MERCHANTS,
+  OFFERS,
+  getDemoCard,
+  getProgram,
+} from "@/lib/catalog";
 
 export default function Insights() {
   const insights = useQuery(api.insights.walletInsights, {});
@@ -48,6 +57,22 @@ export default function Insights() {
 
   const { cardCount, activeCardCount, totalPoints, cashbackBalance, expiring, monthlySpend, topCategory } = insights;
   const inactive = cardCount - activeCardCount;
+
+  /** Catalog-wide category analysis across ALL demo cards (not just wallet). */
+  const ownedSlugs = walletState.cards.map((c) => c.slug);
+  const gaps = useMemo(
+    () => categoryGapAnalysis(DEMO_CARDS, OFFERS, DEMO_MERCHANTS, ownedSlugs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cardCount, activeCardCount],
+  );
+  const topGaps = useMemo(
+    () => [...gaps].sort((a, b) => b.monthlyGap - a.monthlyGap).slice(0, 5),
+    [gaps],
+  );
+  const catalogWinners = useMemo(
+    () => gaps.map((g) => g.catalogBest),
+    [gaps],
+  );
 
   // Deterministic annual-fee drag: fees of all owned cards
   const annualFees = walletState.cards.reduce(
@@ -168,6 +193,102 @@ export default function Insights() {
                 </p>
               </div>
             </div>
+
+            {/* Catalog-wide analysis across ALL demo cards */}
+            <section className="nb-card p-5">
+              <h2 className="font-display flex items-center gap-2 text-lg font-bold">
+                <ChartLine className="size-4" /> Best card per category — across all{" "}
+                {DEMO_CARDS.length} catalog cards
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                The catalog-wide winner in every major spend category, compared
+                with the best card you own. "Gap" is the estimated monthly value
+                a stronger card could capture at the sample spend shown.
+              </p>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <th className="pb-2 pr-3">Category</th>
+                      <th className="pb-2 pr-3">Catalog winner</th>
+                      <th className="pb-2 pr-3">Your best</th>
+                      <th className="pb-2 text-right">Monthly gap</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topGaps.map((g) => {
+                      const have = g.ownedBest;
+                      return (
+                        <tr key={g.category} className="border-b last:border-0">
+                          <td className="py-2.5 pr-3 font-bold">
+                            {g.categoryEmoji} {g.categoryLabel}
+                          </td>
+                          <td className="py-2.5 pr-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-14 shrink-0">
+                                <CardVisual card={g.catalogBest.card} compact />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-bold">
+                                  {g.catalogBest.name}
+                                </p>
+                                <p className="tnum text-[10px] text-muted-foreground">
+                                  ₹{Math.round(g.catalogBest.totalBenefit).toLocaleString("en-IN")} on ₹
+                                  {g.sampleAmount.toLocaleString("en-IN")}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-2.5 pr-3">
+                            {have ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-14 shrink-0">
+                                  <CardVisual card={have.card} compact />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-bold">{have.name}</p>
+                                  <p className="tnum text-[10px] text-muted-foreground">
+                                    ₹{Math.round(have.totalBenefit).toLocaleString("en-IN")}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                Nothing earns here yet
+                              </span>
+                            )}
+                          </td>
+                          <td className="tnum py-2.5 text-right font-black">
+                            {g.monthlyGap > 0
+                              ? `+₹${Math.round(g.monthlyGap).toLocaleString("en-IN")}`
+                              : "You're best ✓"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {catalogWinners.slice(0, 6).map((w) => (
+                  <span
+                    key={w.slug}
+                    className={`nb-flat px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      w.owned ? "bg-secondary text-muted-foreground" : "bg-accent"
+                    }`}
+                  >
+                    {w.owned ? "✓ " : "+ "}
+                    {w.name}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
+                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+                Gap math uses the same deterministic engine as the optimizer at
+                a fixed sample amount per category — real value depends on your
+                actual spend mix. "Gap" is opportunity, not a guarantee.
+              </p>
+            </section>
 
             <section className="nb-card p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">

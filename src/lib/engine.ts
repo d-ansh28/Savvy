@@ -479,3 +479,253 @@ export function optimizePurchase(
     },
   };
 }
+
+export interface CatalogScanRow {
+  slug: string;
+  card: DemoCard;
+  issuer: string;
+  name: string;
+  network: DemoCard["network"];
+  art: DemoCard["art"];
+  rewardType: DemoCard["rewardType"];
+  /** Total estimated benefit for the given purchase (cashback + points value + offers). */
+  totalBenefit: number;
+  /** Money-back-now component (cashback + offers). */
+  nowBenefit: number;
+  /** Deferred points/miles value component. */
+  deferredValue: number;
+  annualFee: number;
+  upi: boolean;
+  domesticLounge?: string;
+  intlLounge?: string;
+  golf?: string;
+  /** Top matched reward note, e.g. "10% on Swiggy". */
+  bestRuleNote?: string;
+  owned: boolean;
+}
+
+/**
+ * Scan the ENTIRE catalog for the best cards for a given purchase.
+ * Deterministic: same inputs => same ranking. Used by Offers (merchant match),
+ * Insights (category leaderboard) and the AI assistant (catalog context).
+ */
+export function bestCardsForPurchase(
+  purchase: PurchaseInput,
+  allCards: DemoCard[],
+  allOffers: Offer[],
+  merchants: { id: string; name: string; aliases: string[]; category: Category }[],
+  ownedSlugs: string[] = [],
+  limit = 10,
+): CatalogScanRow[] {
+  const merchantId = resolveMerchantId(purchase.merchantName, merchants);
+  const merchantCategory = merchants.find((m) => m.id === merchantId)?.category;
+  const owned = new Set(ownedSlugs);
+
+  const rows = allCards.map((card) => {
+    const ev = evaluateCard(card, purchase, allOffers, merchantId, merchantCategory);
+    const now = round2(ev.cashback + (ev.offer?.benefit ?? 0));
+    const bestRule =
+      card.rules
+        .filter((r) => !r.category || r.category === purchase.category)
+        .sort(
+          (a, b) =>
+            (b.pointsPer100 ?? 0) * (b.pointValue ?? 0) + (b.percent ?? 0) * 100 -
+            ((a.pointsPer100 ?? 0) * (a.pointValue ?? 0) + (a.percent ?? 0) * 100),
+        )[0];
+    return {
+      slug: card.slug,
+      card,
+      issuer: card.issuer,
+      name: card.name,
+      network: card.network,
+      art: card.art,
+      rewardType: card.rewardType,
+      totalBenefit: ev.totalBenefit,
+      nowBenefit: now,
+      deferredValue: round2(ev.pointsValue),
+      annualFee: card.annualFee,
+      upi: card.perks?.upi === true,
+      domesticLounge: card.perks?.domesticLounge,
+      intlLounge: card.perks?.intlLounge,
+      golf: card.perks?.golf,
+      bestRuleNote: ev.eligible ? bestRule?.note : undefined,
+      owned: owned.has(card.slug),
+    } as CatalogScanRow;
+  });
+
+  return rows
+    .sort(
+      (a, b) =>
+        b.totalBenefit - a.totalBenefit ||
+        b.nowBenefit - a.nowBenefit ||
+        a.annualFee - b.annualFee,
+    )
+    .slice(0, limit);
+}
+
+export interface CategoryGap {
+  category: Category;
+  categoryLabel: string;
+  categoryEmoji: string;
+  /** Representative monthly spend used for the estimate. */
+  sampleAmount: number;
+  /** #1 card in the entire catalog for this category. */
+  catalogBest: CatalogScanRow;
+  /** #1 card the user owns for this category (null if none earns anything). */
+  ownedBest: CatalogScanRow | null;
+  /** ₹/month the user leaves on the table vs the catalog best. */
+  monthlyGap: number;
+}
+
+const CATEGORY_SAMPLES: { category: Category; amount: number }[] = [
+  { category: "ecommerce", amount: 12000 },
+  { category: "groceries", amount: 8000 },
+  { category: "dining", amount: 6000 },
+  { category: "shopping", amount: 8000 },
+  { category: "fuel", amount: 5000 },
+  { category: "flights", amount: 15000 },
+  { category: "hotels", amount: 12000 },
+  { category: "travel", amount: 10000 },
+  { category: "utilities", amount: 3000 },
+  { category: "subscriptions", amount: 1500 },
+  { category: "entertainment", amount: 2500 },
+  { category: "telecom", amount: 1000 },
+];
+
+/**
+ * Catalog-wide category analysis: for each major spend category, the best card
+ * in the whole catalog vs the best card the user owns — the monthly gap is the
+ * money a better card could capture. Deterministic.
+ */
+export function categoryGapAnalysis(
+  allCards: DemoCard[],
+  allOffers: Offer[],
+  merchants: { id: string; name: string; aliases: string[]; category: Category }[],
+  ownedSlugs: string[],
+): CategoryGap[] {
+  const today = new Date().toISOString().slice(0, 10);
+  const out: CategoryGap[] = [];
+  for (const { category, amount } of CATEGORY_SAMPLES) {
+    const rows = bestCardsForPurchase(
+      { merchantName: "", amount, category, dateISO: today, channel: "online" },
+      allCards,
+      allOffers,
+      merchants,
+      ownedSlugs,
+      allCards.length,
+    );
+    if (rows.length === 0) continue;
+    const catalogBest = rows[0];
+    const ownedBest = rows.find((r) => r.owned) ?? null;
+    // Normalize to monthly value (sample is a monthly-ish basket for the category).
+    const monthlyGap = round2(
+      Math.max(0, catalogBest.totalBenefit - (ownedBest?.totalBenefit ?? 0)),
+    );
+    out.push({
+      category,
+      categoryLabel: categoryLabel(category),
+      categoryEmoji: categoryEmoji(category),
+      sampleAmount: amount,
+      catalogBest,
+      ownedBest,
+      monthlyGap,
+    });
+  }
+  return out;
+}
+
+export interface EarnRateRow {
+  slug: string;
+  card: DemoCard;
+  issuer: string;
+  name: string;
+  /** Reward ₹ value earned per ₹10,000 spend in this category. */
+  valuePer10k: number;
+  /** Raw earn label, e.g. "5% cashback" or "10 pts/₹100". */
+  rateLabel: string;
+  rewardType: DemoCard["rewardType"];
+  annualFee: number;
+  upi: boolean;
+}
+
+/**
+ * Rank the ENTIRE catalog by how fast each card earns rewards for a given
+ * category. Deterministic; used by the rewards vault's "fastest earners" panel.
+ */
+export function bestEarnersForCategory(
+  category: Category,
+  allCards: DemoCard[],
+  limit = 8,
+): EarnRateRow[] {
+  const rows: EarnRateRow[] = [];
+  for (const card of allCards) {
+    const rule =
+      card.rules.find((r) => r.category === category) ??
+      card.rules.find((r) => r.category === undefined);
+    if (!rule) continue;
+    const rupeesPer100 =
+      rule.kind === "cashback"
+        ? (rule.percent ?? 0) * 100
+        : (rule.pointsPer100 ?? 0) * (rule.pointValue ?? 0);
+    if (!(rupeesPer100 > 0)) continue;
+    rows.push({
+      slug: card.slug,
+      card,
+      issuer: card.issuer,
+      name: card.name,
+      valuePer10k: Math.round(rupeesPer100 * 100),
+      rateLabel:
+        rule.kind === "cashback"
+          ? `${Math.round((rule.percent ?? 0) * 1000) / 10}% cashback`
+          : `${rule.pointsPer100} ${rule.kind === "miles" ? "miles" : "pts"}/₹100`,
+      rewardType: card.rewardType,
+      annualFee: card.annualFee,
+      upi: card.perks?.upi === true,
+    });
+  }
+  return rows.sort((a, b) => b.valuePer10k - a.valuePer10k).slice(0, limit);
+}
+
+/**
+ * Rank the entire catalog by how fast each card earns a given REWARD KIND
+ * (cashback / points / miles) at its best base rate. Deterministic; used by
+ * the rewards vault's "earn this currency fastest" panel.
+ */
+export function bestEarnersForRewardKind(
+  kind: DemoCard["rewardType"],
+  allCards: DemoCard[],
+  limit = 8,
+): EarnRateRow[] {
+  const rows: EarnRateRow[] = [];
+  for (const card of allCards) {
+    if (card.rewardType !== kind) continue;
+    const rule =
+      card.rules.find((r) => r.category === undefined) ??
+      [...card.rules].sort(
+        (a, b) =>
+          (b.pointsPer100 ?? 0) * (b.pointValue ?? 0) + (b.percent ?? 0) * 100 -
+          ((a.pointsPer100 ?? 0) * (a.pointValue ?? 0) + (a.percent ?? 0) * 100),
+      )[0];
+    if (!rule) continue;
+    const rupeesPer100 =
+      rule.kind === "cashback"
+        ? (rule.percent ?? 0) * 100
+        : (rule.pointsPer100 ?? 0) * (rule.pointValue ?? 0);
+    if (!(rupeesPer100 > 0)) continue;
+    rows.push({
+      slug: card.slug,
+      card,
+      issuer: card.issuer,
+      name: card.name,
+      valuePer10k: Math.round(rupeesPer100 * 100),
+      rateLabel:
+        rule.kind === "cashback"
+          ? `${Math.round((rule.percent ?? 0) * 1000) / 10}% cashback`
+          : `${rule.pointsPer100} ${rule.kind === "miles" ? "miles" : "pts"}/₹100`,
+      rewardType: card.rewardType,
+      annualFee: card.annualFee,
+      upi: card.perks?.upi === true,
+    });
+  }
+  return rows.sort((a, b) => b.valuePer10k - a.valuePer10k).slice(0, limit);
+}

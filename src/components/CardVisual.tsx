@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Plane, Smile, Waves, Wifi } from "lucide-react";
 import { type DemoCard, type Network } from "@/lib/catalog";
-import { artFor, NETWORK_MARK } from "@/lib/issuerArt";
+import { artFor, NETWORK_MARK, OFFICIAL_FACES } from "@/lib/issuerArt";
 import { cn } from "@/lib/utils";
 
 function NetworkMark({ network, upi }: { network: Network; upi?: boolean }) {
@@ -67,6 +67,94 @@ function NetworkMark({ network, upi }: { network: Network; upi?: boolean }) {
   );
 }
 
+/** Decorative motif layer for official faces. */
+function FaceMotif({
+  motif,
+  color,
+}: {
+  motif: NonNullable<
+    (typeof OFFICIAL_FACES)[string]
+  >["motif"];
+  color: string;
+}) {
+  if (!motif || motif === "none") return null;
+  if (motif === "diagonal") {
+    return (
+      <div
+        aria-hidden
+        className="absolute -top-10 -right-10 h-48 w-48 rotate-45 opacity-60"
+        style={{
+          background: `linear-gradient(135deg, transparent 0 40%, ${color} 40% 45%, transparent 45% 60%, ${color} 60% 63%, transparent 63%)`,
+        }}
+      />
+    );
+  }
+  if (motif === "rings") {
+    return (
+      <svg
+        aria-hidden
+        viewBox="0 0 100 100"
+        className="absolute -right-6 -bottom-10 h-40 w-40 opacity-70"
+      >
+        {[22, 30, 38, 46].map((r) => (
+          <circle
+            key={r}
+            cx="50"
+            cy="50"
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth="2.5"
+          />
+        ))}
+      </svg>
+    );
+  }
+  if (motif === "diamond") {
+    return (
+      <div
+        aria-hidden
+        className="absolute top-1/2 right-6 h-36 w-36 -translate-y-1/2 rotate-45 border-2 opacity-50"
+        style={{ borderColor: color, background: "transparent" }}
+      />
+    );
+  }
+  if (motif === "wave") {
+    return (
+      <svg
+        aria-hidden
+        viewBox="0 0 120 60"
+        className="absolute right-0 bottom-6 h-16 w-40 opacity-60"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M0 40 Q 15 10 30 40 T 60 40 T 90 40 T 120 40"
+          fill="none"
+          stroke={color}
+          strokeWidth="3"
+        />
+        <path
+          d="M0 50 Q 15 24 30 50 T 60 50 T 90 50 T 120 50"
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+        />
+      </svg>
+    );
+  }
+  // dots
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-0 opacity-50"
+      style={{
+        backgroundImage: `radial-gradient(${color} 1.2px, transparent 1.2px)`,
+        backgroundSize: "14px 14px",
+      }}
+    />
+  );
+}
+
 export function CardVisual({
   card,
   last4,
@@ -81,8 +169,11 @@ export function CardVisual({
   showPerks?: boolean;
 }) {
   const art = useMemo(() => artFor(card), [card]);
+  const face = useMemo(() => OFFICIAL_FACES[card.slug], [card.slug]);
   const showLast4 = last4 ?? "4242";
   const isMetal = card.perks?.metal === true;
+
+  const issuerName = face?.coBrand ? face.wordmark ?? card.issuer : card.issuer;
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -92,26 +183,34 @@ export function CardVisual({
           compact ? "h-32" : "h-44 sm:h-48",
         )}
         style={{
-          background: `linear-gradient(135deg, ${art.from} 0%, ${art.to} 100%)`,
-          color: art.ink,
+          background: face ? face.bg : `linear-gradient(135deg, ${art.from} 0%, ${art.to} 100%)`,
+          color: face ? face.ink : art.ink,
         }}
       >
-        {/* subtle brand texture */}
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-30"
-          style={{
-            background: `repeating-linear-gradient(45deg, transparent 0 10px, rgba(255,255,255,${art.texture}) 10px 11px)`,
-          }}
-        />
-        {/* diagonal sheen */}
-        <div
-          aria-hidden
-          className="absolute -top-12 -right-16 h-44 w-44 rotate-45 opacity-20"
-          style={{ background: art.accent }}
-        />
-        {/* dark issuer band (Scapia-style) */}
-        {art.band && (
+        {/* subtle brand texture (non-official faces) */}
+        {!face && (
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-30"
+            style={{
+              background: `repeating-linear-gradient(45deg, transparent 0 10px, rgba(255,255,255,${art.texture}) 10px 11px)`,
+            }}
+          />
+        )}
+        {/* diagonal sheen (non-official faces) */}
+        {!face && (
+          <div
+            aria-hidden
+            className="absolute -top-12 -right-16 h-44 w-44 rotate-45 opacity-20"
+            style={{ background: art.accent }}
+          />
+        )}
+        {/* official face motif */}
+        {face?.motif && face.motif !== "none" && face.motifColor && (
+          <FaceMotif motif={face.motif} color={face.motifColor} />
+        )}
+        {/* dark issuer band (Scapia-style, non-official faces) */}
+        {!face && art.band && (
           <div
             aria-hidden
             className="absolute top-0 right-0 left-0 h-11"
@@ -124,13 +223,24 @@ export function CardVisual({
             <p
               className={cn(
                 "truncate text-[9px] font-bold uppercase tracking-[0.18em]",
-                art.band ? "text-[10px] tracking-[0.2em] text-white/90" : "opacity-80",
+                face
+                  ? "text-[11px] tracking-[0.14em]"
+                  : art.band
+                    ? "text-[10px] tracking-[0.2em] text-white/90"
+                    : "opacity-80",
               )}
+              style={face?.coBrandColor ? { color: face.coBrandColor } : undefined}
             >
-              {card.issuer}
+              {face?.coBrand ?? card.issuer}
             </p>
-            <p className="font-display mt-0.5 truncate text-base leading-tight font-bold tracking-tight sm:text-lg">
-              {card.name}
+            <p
+              className={cn(
+                "font-display mt-0.5 truncate text-base leading-tight font-bold tracking-tight sm:text-lg",
+                face && "text-[15px] sm:text-base",
+              )}
+              style={face?.wordmarkColor ? { color: face.wordmarkColor } : undefined}
+            >
+              {face?.coBrand ? face.wordmark : card.name}
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
@@ -159,11 +269,12 @@ export function CardVisual({
           </div>
           <div className="flex flex-col items-end gap-0.5 pb-1">
             <p className="tnum text-right text-[11px] font-semibold opacity-95">
-              {card.rewardType === "cashback"
-                ? "CASHBACK"
-                : card.rewardType === "miles"
-                  ? "MILES"
-                  : "POINTS"}
+              {face?.rewardLabel ??
+                (card.rewardType === "cashback"
+                  ? "CASHBACK"
+                  : card.rewardType === "miles"
+                    ? "MILES"
+                    : "POINTS")}
             </p>
             <p className="tnum text-right text-[10px] font-medium opacity-75">
               {card.annualFee === 0
@@ -190,6 +301,12 @@ export function CardVisual({
           <div className="absolute top-3 right-3 rounded-sm border border-white/40 bg-black/30 px-1.5 py-0.5 text-[8px] font-black tracking-widest text-white/90">
             METAL
           </div>
+        )}
+        {/* keep issuer name discoverable on co-brand faces */}
+        {face?.coBrand && !face.wordmark?.toLowerCase().includes(issuerName.toLowerCase()) && (
+          <p className="absolute right-3 bottom-14 text-[9px] font-bold uppercase tracking-widest opacity-70">
+            {issuerName}
+          </p>
         )}
       </div>
 
