@@ -214,7 +214,11 @@ export default function Optimize() {
         toast.error("Add an active card to your wallet first.");
         navigate("/wallet");
       } else {
-        toast.error(msg || "Optimization failed. Please try again.");
+        // Client-friendly copy — raw Convex error dumps never reach the user.
+        const clean = /Enter a valid amount|Merchant name is required|Not signed in/.test(msg)
+          ? msg
+          : "Couldn't run the optimization right now. Please try again.";
+        toast.error(clean);
       }
     } finally {
       setRunning(false);

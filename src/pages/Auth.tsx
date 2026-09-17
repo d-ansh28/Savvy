@@ -62,15 +62,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       });
       navigate(redirect);
     } catch (err) {
-      console.error("Auth error:", err);
+      // Show the client-friendly message from the provider — never dev logs.
       const raw =
         err instanceof Error ? err.message : "Something went wrong. Please try again.";
-      // Convex errors arrive as `Uncaught Error: <message> [convex] ...`
-      const message = raw
-        .replace(/^.*?Error: /, "")
-        .replace(/\s*\[convex\].*$/, "")
-        .trim();
-      setError(message || "Something went wrong. Please try again.");
+      setError(clientAuthMessage(raw, mode));
       setIsLoading(false);
     }
   };
@@ -145,7 +140,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   </p>
                 )}
               </CardContent>
-              <CardFooter className="flex-col gap-2 pb-6">
+              <CardFooter className="mt-2 flex-col gap-2 pb-6">
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <Loader2 className="mr-2 size-4 animate-spin" />
@@ -205,4 +200,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
 export default function AuthPage(props: AuthProps) {
   return <Auth {...props} />;
+}
+
+/**
+ * Map raw Convex/server error dumps to the client-friendly messages defined
+ * in the auth provider. Never shows stack traces, request IDs or file paths.
+ */
+function clientAuthMessage(raw: string, mode: "signIn" | "signUp"): string {
+  const generic =
+    mode === "signUp"
+      ? "Couldn't create your account. Please try again."
+      : "Couldn't sign you in. Please try again.";
+
+  // Known provider messages — match on the exact client-facing text.
+  const known = [
+    "An account with this email already exists — sign in instead",
+    "Invalid email or password",
+    "Enter a valid email address",
+    "Password must be at least 8 characters",
+  ];
+  for (const msg of known) {
+    if (raw.includes(msg)) return msg;
+  }
+
+  // Network / connectivity issues
+  if (/fetch|network|Failed to fetch|ECONNREFUSED|503|502/i.test(raw)) {
+    return "Can't reach Savvy right now. Check your connection and try again.";
+  }
+
+  return generic;
 }

@@ -20,10 +20,10 @@ export function LogoDropdown() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate("/");
-    } catch (error) {
-      console.error("Sign out error:", error);
+    } catch {
+      // Signing out locally even if the server call fails.
     }
+    navigate("/");
   };
 
   const handleGoHome = () => {
