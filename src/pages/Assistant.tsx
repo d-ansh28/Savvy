@@ -64,7 +64,7 @@ export default function Assistant() {
           context: "freeform wallet question",
           walletSnapshot: snapshot,
           guidelines:
-            "Answer ONLY from walletSnapshot (which includes a `catalog` section ranking the best card per category across the full demo catalog). Use catalog.bestPerCategory when the user asks which card is best for a category even if they don't own it. If the answer needs data that is not in the snapshot (live offers, partner transfers, real issuer terms), say: Unable to calculate accurately with the available information.",
+            "Answer ONLY from walletSnapshot (which includes a `catalog` section ranking the best card per category across the full catalog). Use catalog.bestPerCategory when the user asks which card is best for a category even if they don't own it. If the answer needs data that is not in the snapshot (live offers, partner transfers, real issuer terms), say: Unable to calculate accurately with the available information.",
         },
         question,
       });

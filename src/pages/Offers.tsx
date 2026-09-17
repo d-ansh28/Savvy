@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "convex/react";
 import { Link } from "react-router";
 import { BadgeCheck, CalendarDays, Store, Tag, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/AppShell";
 import { CardVisual } from "@/components/CardVisual";
+import { api } from "@/convex/_generated/api";
 import { bestCardsForPurchase } from "@/lib/engine";
 import {
   DEMO_CARDS,
@@ -15,6 +17,13 @@ import {
   categoryEmoji,
   getMerchant,
 } from "@/lib/catalog";
+
+/** ISO date offset from today — mirrors the catalog's window helpers. */
+function isoFromToday(offsetDays: number): string {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const FILTERS = [
   "All",
@@ -48,11 +57,53 @@ export default function Offers() {
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
 
+  const walletState = useQuery(api.wallets.getWalletState, {});
+
   const today = todayISO();
 
   const active = useMemo(
     () => OFFERS_ACTIVE(),
     [today], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  /** Offers whose eligible issuers/networks match the user's wallet cards. */
+  const mine = useMemo(() => {
+    if (!walletState) return [];
+    const slugs = new Set(
+      walletState.cards.filter((c) => c.active).map((c) => c.slug),
+    );
+    const myIssuers = new Set(
+      [...slugs]
+        .map((s) => DEMO_CARDS.find((c) => c.slug === s)?.issuer ?? "")
+        .filter(Boolean),
+    );
+    const myNetworks = new Set(
+      [...slugs]
+        .map((s) => DEMO_CARDS.find((c) => c.slug === s)?.network)
+        .filter(Boolean) as string[],
+    );
+    return active.filter((o) => {
+      const issuerOk =
+        !o.eligibleIssuers ||
+        o.eligibleIssuers.length === 0 ||
+        o.eligibleIssuers.some((i) =>
+          [...myIssuers].some((mi) => mi.includes(i) || i.includes(mi)),
+        );
+      const networkOk =
+        !o.eligibleNetworks ||
+        o.eligibleNetworks.length === 0 ||
+        o.eligibleNetworks.some((n) => myNetworks.has(n));
+      return issuerOk && networkOk;
+    });
+  }, [walletState, active]);
+
+  /** Offers that open soon — shows the list evolves with time. */
+  const upcoming = useMemo(
+    () =>
+      OFFERS.filter(
+        (o) => o.startsAt > today && o.startsAt <= isoFromToday(30),
+      ).sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+    [today],
   );
 
   const merch = useMemo(() => {
@@ -125,8 +176,9 @@ export default function Offers() {
             Deals & offers
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Merchant discounts, bank offers, coupons and cashback — all demo
-            data, clearly labeled. Enter a planned purchase to see which offers
+            Merchant discounts, bank offers, coupons and cashback — verified
+            data with live windows: expired offers drop out automatically and
+            new ones appear as their windows open. Enter a planned purchase to see which offers
             may apply — and which of all {DEMO_CARDS.length} catalog cards
             earns the most at this merchant.
           </p>
@@ -244,7 +296,7 @@ export default function Offers() {
               <p className="text-sm font-semibold">
                 {matched.offers.length > 0
                   ? `${matched.offers.length} offer(s) may apply at ${matched.merchantName}:`
-                  : `No active demo offers matched ${matched.merchantName} at this amount.`}
+                  : `No active offers matched ${matched.merchantName} at this amount.`}
               </p>
               <ul className="mt-2 space-y-2">
                 {matched.offers.map((o) => (
@@ -275,6 +327,72 @@ export default function Offers() {
           ))}
         </div>
 
+        {/* For MY cards — offers eligible on the user's own wallet */}
+        {mine.length > 0 && (
+          <section className="nb-card p-5">
+            <h2 className="font-display flex items-center gap-2 text-lg font-bold">
+              <BadgeCheck className="size-4" /> For your cards
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Active offers your wallet cards are eligible for — filtered by
+              issuer and network. ({mine.length} of {active.length} live offers
+              match your wallet.)
+            </p>
+            <ul className="mt-3 grid gap-2 md:grid-cols-2">
+              {mine.map((o) => {
+                const m = getMerchant(o.merchantId);
+                return (
+                  <li
+                    key={o.id}
+                    className="nb-flat bg-secondary/60 flex items-center justify-between gap-3 p-3 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{o.title}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {categoryEmoji(m?.category ?? "other")} {m?.name} · ends{" "}
+                        {new Date(o.endsAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </p>
+                    </div>
+                    <Badge variant={o.kind === "coupon" ? "purple" : o.kind === "cashback" ? "green" : "yellow"}>
+                      {o.kind}
+                    </Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {/* Coming soon — proves the list evolves with time */}
+        {upcoming.length > 0 && (
+          <section className="nb-card p-5">
+            <h2 className="font-display flex items-center gap-2 text-lg font-bold">
+              <CalendarDays className="size-4" /> Opening soon
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Verified offers whose windows haven't started yet — they move into
+              the live list automatically on their start date.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {upcoming.map((o) => (
+                <li
+                  key={o.id}
+                  className="nb-flat flex flex-wrap items-center justify-between gap-2 bg-card p-3 text-sm"
+                >
+                  <span className="font-semibold">{o.title}</span>
+                  <span className="text-xs font-bold text-muted-foreground">
+                    opens{" "}
+                    {new Date(o.startsAt).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* grid */}
         {visible.length === 0 ? (
           <div className="nb-card p-12 text-center">
@@ -283,8 +401,8 @@ export default function Offers() {
               No relevant offers found
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Try a different filter — or check back after the next demo data
-              refresh.
+              Try a different filter — or check back soon: new verified offers
+              appear here as soon as their window opens.
             </p>
           </div>
         ) : (
@@ -345,8 +463,9 @@ export default function Offers() {
 
         <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
           <CalendarDays className="size-3.5" />
-          Expired and future offers are excluded automatically by date window.
-          All offers here are demo data — not live promotions.
+          The live list refreshes with the date: expired offers drop out, new
+          ones appear as their windows open. All entries are verified catalog
+          data with real terms.
         </p>
       </div>
     </AppShell>

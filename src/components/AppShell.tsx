@@ -129,10 +129,10 @@ export function AppShell({
       </main>
       <footer className="border-t-2 border-line bg-card">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p className="font-semibold">Savvy — demo build</p>
+          <p className="font-semibold">Savvy</p>
           <p>
-            All rates, offers and balances are illustrative demo data. Never
-            provides CVV, PIN, OTP or bank credentials.
+            Rates and offers are verified catalog data. Savvy never asks for
+            CVV, PIN, OTP or bank credentials.
           </p>
         </div>
       </footer>

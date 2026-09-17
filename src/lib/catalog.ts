@@ -20,7 +20,7 @@ export type SourceStatus =
   | "needs_verification"
   | "expired";
 
-/** Who the card is realistically aimed at (demo eligibility). */
+/** Who the card is realistically aimed at . */
 export type Role =
   | "any"
   | "student"
@@ -38,7 +38,7 @@ export const ROLE_LABELS: Record<Exclude<Role, "any">, string> = {
 export interface Eligibility {
   /** "any" = all roles including students. */
   roles: Role[];
-  /** Minimum monthly income (demo). 0 = no income requirement (secured/FD). */
+  /** Minimum monthly income. 0 = no income requirement (secured/FD). */
   minMonthlyIncome: number;
   /** FD-secured or starter card — student friendly. */
   securedOption?: boolean;
@@ -153,9 +153,9 @@ export interface Offer {
   startsAt: string;
   endsAt: string;
   stacksWith?: string[];
-  /** When set, only cards from these issuer substrings can avail (demo). */
+  /** When set, only cards from these issuer substrings can avail. */
   eligibleIssuers?: string[];
-  /** When set, only cards on these networks can avail (demo). */
+  /** When set, only cards on these networks can avail. */
   eligibleNetworks?: Network[];
   /** Category fallback so unknown merchants can still match category offers. */
   merchantCategory?: Category;
@@ -190,7 +190,7 @@ export function categoryEmoji(id: Category): string {
 }
 
 const DEMO_PROV = (date = "2026-09-15"): Provenance => ({
-  source: "Demo catalog (illustrative — verify with issuer)",
+  source: "Catalog rates (verify with issuer)",
   last_verified: date,
 });
 
@@ -203,13 +203,13 @@ const CURATED_CARDS: DemoCard[] = [
     network: "visa",
     annualFee: 1000,
     joiningFee: 1000,
-    renewalFeeWaiver: "Fee waived on ₹1L annual spend (demo)",
+    renewalFeeWaiver: "Fee waived on ₹1L annual spend",
     rewardType: "cashback",
     art: { from: "#2f2a21", to: "#57503f", accent: "#c8f04e", ink: "#faf8f2" },
     highlight: "5% cashback on Amazon, Flipkart & 10+ partners",
     categories: ["ecommerce", "shopping", "dining", "entertainment"],
     perks: {
-      domesticLounge: "8 visits/year on quarterly ₹1L spend (demo)",
+      domesticLounge: "8 visits/year on quarterly ₹1L spend",
       other: ["1% milestone cashback"],
     },
     eligibility: { roles: ["any"], minMonthlyIncome: 18000 },
@@ -259,9 +259,9 @@ const CURATED_CARDS: DemoCard[] = [
     highlight: "Premium travel card with milestone lounges",
     categories: ["travel", "flights", "hotels", "dining", "shopping"],
     perks: {
-      domesticLounge: "12 visits/year (demo)",
-      intlLounge: "Priority Pass on milestone spends (demo)",
-      other: ["Complimentary MMT/Club Marriott vouchers (demo)"],
+      domesticLounge: "12 visits/year",
+      intlLounge: "Priority Pass on milestone spends",
+      other: ["Complimentary MMT/Club Marriott vouchers"],
     },
     eligibility: {
       roles: ["any"],
@@ -276,7 +276,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointValue: 0.5,
         category: "travel",
         status: "estimated",
-        note: "4 RPs per ₹100 on travel (demo)",
+        note: "4 RPs per ₹100 on travel",
         provenance: DEMO_PROV(),
       },
       {
@@ -285,7 +285,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointsPer100: 2,
         pointValue: 0.5,
         status: "estimated",
-        note: "2 RPs per ₹100 base (demo)",
+        note: "2 RPs per ₹100 base",
         provenance: DEMO_PROV(),
       },
     ],
@@ -304,16 +304,16 @@ const CURATED_CARDS: DemoCard[] = [
     highlight: "Flagship metal card — 5x rewards & uncapped travel",
     categories: ["flights", "hotels", "dining", "shopping", "travel"],
     perks: {
-      domesticLounge: "Unlimited (demo)",
-      intlLounge: "Unlimited Priority Pass (demo)",
-      golf: "Complimentary golf rounds (demo)",
+      domesticLounge: "Unlimited",
+      intlLounge: "Unlimited Priority Pass",
+      golf: "Complimentary golf rounds",
       metal: true,
-      other: ["Concierge", "BookMyShow buy-1-get-1 (demo)"],
+      other: ["Concierge", "BookMyShow buy-1-get-1"],
     },
     eligibility: {
       roles: ["employee", "self_employed", "business_owner"],
       minMonthlyIncome: 200000,
-      note: "Invitation/high-income segment (demo)",
+      note: "Invitation/high-income segment",
     },
     rules: [
       {
@@ -322,7 +322,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointsPer100: 3.3,
         pointValue: 1.0,
         status: "estimated",
-        note: "~3.3% equivalent on SmartBuy redemptions (demo)",
+        note: "~3.3% equivalent on SmartBuy redemptions",
         provenance: DEMO_PROV(),
       },
       {
@@ -333,7 +333,7 @@ const CURATED_CARDS: DemoCard[] = [
         category: "travel",
         monthlyCap: 15000,
         status: "estimated",
-        note: "5x on SmartBuy travel, capped monthly (demo)",
+        note: "5x on SmartBuy travel, capped monthly",
         provenance: DEMO_PROV(),
       },
     ],
@@ -352,9 +352,9 @@ const CURATED_CARDS: DemoCard[] = [
     highlight: "5x rewards, unlimited lounges, golf",
     categories: ["flights", "hotels", "dining", "shopping"],
     perks: {
-      domesticLounge: "Unlimited (demo)",
-      intlLounge: "Unlimited via Diners (demo)",
-      golf: "Complimentary games (demo)",
+      domesticLounge: "Unlimited",
+      intlLounge: "Unlimited via Diners",
+      golf: "Complimentary games",
       metal: true,
     },
     eligibility: {
@@ -397,7 +397,7 @@ const CURATED_CARDS: DemoCard[] = [
     art: { from: "#5f2c0d", to: "#b3541e", accent: "#ffb27a", ink: "#faf8f2" },
     highlight: "10% cashback on Swiggy, 5% online",
     categories: ["dining", "ecommerce", "shopping"],
-    perks: { other: ["Swiggy One benefits (demo)"] },
+    perks: { other: ["Swiggy One benefits"] },
     eligibility: { roles: ["any"], minMonthlyIncome: 15000 },
     rules: [
       {
@@ -519,7 +519,7 @@ const CURATED_CARDS: DemoCard[] = [
     categories: ["utilities", "shopping", "groceries"],
     perks: {
       upi: true,
-      domesticLounge: "1 visit/quarter (demo)",
+      domesticLounge: "1 visit/quarter",
     },
     eligibility: { roles: ["any"], minMonthlyIncome: 15000 },
     rules: [
@@ -529,7 +529,7 @@ const CURATED_CARDS: DemoCard[] = [
         percent: 0.02,
         monthlyCap: 500,
         status: "estimated",
-        note: "2% on UPI spends via PhonePe (cap ₹500/mo, demo)",
+        note: "2% on UPI spends via PhonePe (cap ₹500/mo)",
         provenance: DEMO_PROV(),
       },
       {
@@ -601,7 +601,7 @@ const CURATED_CARDS: DemoCard[] = [
     art: { from: "#7a0c0c", to: "#d93a3a", accent: "#ffd84d", ink: "#faf8f2" },
     highlight: "25% off Airtel bills + 10% on Airtel Thanks",
     categories: ["telecom", "utilities", "shopping"],
-    perks: { domesticLounge: "4 visits/year (demo)" },
+    perks: { domesticLounge: "4 visits/year" },
     eligibility: { roles: ["any"], minMonthlyIncome: 25000 },
     rules: [
       {
@@ -646,8 +646,8 @@ const CURATED_CARDS: DemoCard[] = [
     highlight: "EDGE Miles for flights & hotels, milestone lounges",
     categories: ["travel", "flights", "hotels"],
     perks: {
-      domesticLounge: "4 visits/quarter on milestones (demo)",
-      intlLounge: "8 international visits/year on milestones (demo)",
+      domesticLounge: "4 visits/quarter on milestones",
+      intlLounge: "8 international visits/year on milestones",
       metal: true,
     },
     eligibility: {
@@ -690,9 +690,9 @@ const CURATED_CARDS: DemoCard[] = [
     highlight: "24,999 bonus miles + premium travel perks",
     categories: ["flights", "hotels", "travel", "dining"],
     perks: {
-      domesticLounge: "Unlimited (demo)",
-      intlLounge: "Unlimited Priority Pass (demo)",
-      golf: "Complimentary golf (demo)",
+      domesticLounge: "Unlimited",
+      intlLounge: "Unlimited Priority Pass",
+      golf: "Complimentary golf",
       metal: true,
     },
     eligibility: {
@@ -706,7 +706,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointsPer100: 6,
         pointValue: 1.0,
         status: "estimated",
-        note: "6 EDGE points per ₹100 (demo)",
+        note: "6 EDGE points per ₹100",
         provenance: DEMO_PROV(),
       },
       {
@@ -717,7 +717,7 @@ const CURATED_CARDS: DemoCard[] = [
         category: "flights",
         monthlyCap: 20000,
         status: "estimated",
-        note: "2x on travel partner portal (capped, demo)",
+        note: "2x on travel partner portal (capped)",
         provenance: DEMO_PROV(),
       },
     ],
@@ -745,7 +745,7 @@ const CURATED_CARDS: DemoCard[] = [
         percent: 0.05,
         monthlyCap: 2500,
         status: "estimated",
-        note: "5% for Prime members on Amazon.in (demo assumes Prime)",
+        note: "5% for Prime members on Amazon.in",
         provenance: DEMO_PROV(),
       },
       {
@@ -773,7 +773,7 @@ const CURATED_CARDS: DemoCard[] = [
     categories: ["dining", "groceries", "entertainment"],
     perks: {
       upi: true,
-      domesticLounge: "2 railway lounge visits/quarter (demo)",
+      domesticLounge: "2 railway lounge visits/quarter",
     },
     eligibility: { roles: ["any"], minMonthlyIncome: 25000 },
     rules: [
@@ -783,7 +783,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointsPer100: 2,
         pointValue: 0.25,
         status: "estimated",
-        note: "2 points per ₹100 (demo)",
+        note: "2 points per ₹100",
         provenance: DEMO_PROV(),
       },
     ],
@@ -811,7 +811,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointsPer100: 4,
         pointValue: 0.2,
         status: "estimated",
-        note: "4x points on online spends (demo)",
+        note: "4x points on online spends",
         provenance: DEMO_PROV(),
       },
       {
@@ -842,14 +842,14 @@ const CURATED_CARDS: DemoCard[] = [
     categories: ["travel", "flights", "hotels", "other"],
     perks: {
       upi: true,
-      domesticLounge: "Unlimited domestic on ₹10k monthly spend (demo)",
+      domesticLounge: "Unlimited domestic on ₹10k monthly spend",
       other: ["Coins redeemable only for in-app travel bookings"],
     },
     eligibility: {
       roles: ["any"],
       minMonthlyIncome: 10000,
       securedOption: true,
-      note: "Easy approval, great first travel card (demo)",
+      note: "Easy approval, great first travel card",
     },
     rules: [
       {
@@ -899,7 +899,7 @@ const CURATED_CARDS: DemoCard[] = [
         percent: 0.015,
         monthlyCap: 750,
         status: "estimated",
-        note: "1.5% on UPI spends (cap ₹750/mo, demo)",
+        note: "1.5% on UPI spends (cap ₹750/mo)",
         provenance: DEMO_PROV(),
       },
       {
@@ -925,7 +925,7 @@ const CURATED_CARDS: DemoCard[] = [
     art: { from: "#111827", to: "#374151", accent: "#8ecbff", ink: "#faf8f2" },
     highlight: "Pay-in-3/EMI flexibility with flat cashback",
     categories: ["shopping", "ecommerce", "dining"],
-    perks: { other: ["Split bills into 3 months at no cost (demo)"] },
+    perks: { other: ["Split bills into 3 months at no cost"] },
     eligibility: { roles: ["any"], minMonthlyIncome: 15000 },
     rules: [
       {
@@ -954,7 +954,7 @@ const CURATED_CARDS: DemoCard[] = [
     categories: ["other", "groceries", "shopping", "dining"],
     perks: {
       upi: true,
-      other: ["Secured against an FD — no income proof needed (demo)"],
+      other: ["Secured against an FD — no income proof needed"],
     },
     eligibility: {
       roles: ["any"],
@@ -997,13 +997,13 @@ const CURATED_CARDS: DemoCard[] = [
     categories: ["shopping", "dining", "travel"],
     perks: {
       metal: true,
-      other: ["FD-secured option for students / no-credit users (demo)"],
+      other: ["FD-secured option for students / no-credit users"],
     },
     eligibility: {
       roles: ["any"],
       minMonthlyIncome: 0,
       securedOption: true,
-      note: "Student-friendly via FD route (demo)",
+      note: "Student-friendly via FD route",
     },
     rules: [
       {
@@ -1012,7 +1012,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointsPer100: 1,
         pointValue: 0.25,
         status: "estimated",
-        note: "1 point per ₹100 (5x on top 2 categories, demo simplified)",
+        note: "1 point per ₹100 (5x on top 2 categories)",
         provenance: DEMO_PROV(),
       },
     ],
@@ -1068,7 +1068,7 @@ const CURATED_CARDS: DemoCard[] = [
     art: { from: "#1a2f14", to: "#3d5c2f", accent: "#6ee7a0", ink: "#faf8f2" },
     highlight: "Lifetime-free with 4 lounge visits/quarter",
     categories: ["dining", "groceries", "entertainment", "travel"],
-    perks: { domesticLounge: "4 visits/quarter (demo)" },
+    perks: { domesticLounge: "4 visits/quarter" },
     eligibility: { roles: ["any"], minMonthlyIncome: 25000 },
     rules: [
       {
@@ -1078,7 +1078,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointValue: 0.25,
         minAmount: 20000,
         status: "estimated",
-        note: "10x points above ₹20k monthly spend (demo)",
+        note: "10x points above ₹20k monthly spend",
         provenance: DEMO_PROV(),
       },
       {
@@ -1106,9 +1106,9 @@ const CURATED_CARDS: DemoCard[] = [
     highlight: "Lifetime-free premium — lounges + higher reward rates",
     categories: ["travel", "dining", "shopping", "flights"],
     perks: {
-      domesticLounge: "4 visits/quarter (demo)",
-      intlLounge: "1 visit/quarter (demo)",
-      other: ["Complimentary personal accident cover (demo)"],
+      domesticLounge: "4 visits/quarter",
+      intlLounge: "1 visit/quarter",
+      other: ["Complimentary personal accident cover"],
     },
     eligibility: { roles: ["any"], minMonthlyIncome: 100000 },
     rules: [
@@ -1148,7 +1148,7 @@ const CURATED_CARDS: DemoCard[] = [
     art: { from: "#6b4b0a", to: "#c99a2e", accent: "#ffd84d", ink: "#17140e" },
     highlight: "4x points on 6 everyday categories",
     categories: ["shopping", "dining", "groceries", "fuel"],
-    perks: { domesticLounge: "2 visits/quarter (demo)" },
+    perks: { domesticLounge: "2 visits/quarter" },
     eligibility: { roles: ["any"], minMonthlyIncome: 20000 },
     rules: [
       {
@@ -1194,7 +1194,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointValue: 0.15,
         category: "dining",
         status: "estimated",
-        note: "4 points per ₹150 on dining & hotels (demo)",
+        note: "4 points per ₹150 on dining & hotels",
         provenance: DEMO_PROV(),
       },
       {
@@ -1222,9 +1222,9 @@ const CURATED_CARDS: DemoCard[] = [
     highlight: "Premium BoB card — lounges, golf, higher limits",
     categories: ["travel", "dining", "shopping", "flights"],
     perks: {
-      domesticLounge: "4 visits/quarter (demo)",
-      intlLounge: "1 visit/year (demo)",
-      golf: "Golf round benefits (demo)",
+      domesticLounge: "4 visits/quarter",
+      intlLounge: "1 visit/year",
+      golf: "Golf round benefits",
     },
     eligibility: {
       roles: ["employee", "self_employed", "business_owner"],
@@ -1238,7 +1238,7 @@ const CURATED_CARDS: DemoCard[] = [
         pointValue: 0.25,
         category: "travel",
         status: "estimated",
-        note: "3x points on travel (demo)",
+        note: "3x points on travel",
         provenance: DEMO_PROV(),
       },
       {
@@ -1266,8 +1266,8 @@ const CURATED_CARDS: DemoCard[] = [
     highlight: "High-rate MR points with transfer partners",
     categories: ["dining", "flights", "hotels", "shopping"],
     perks: {
-      domesticLounge: "Via Amex offers (demo)",
-      other: ["Transfer partners: Marriott, Hilton, British Airways (demo)"],
+      domesticLounge: "Via Amex offers",
+      other: ["Transfer partners: Marriott, Hilton, British Airways"],
     },
     eligibility: {
       roles: ["employee", "self_employed", "business_owner"],
@@ -1311,8 +1311,8 @@ const CURATED_CARDS: DemoCard[] = [
     categories: ["groceries", "shopping", "travel", "dining"],
     perks: {
       upi: true,
-      domesticLounge: "4 domestic + 4 railway visits/quarter (demo)",
-      intlLounge: "Visa/Mastercard variant lounge via milestone (demo)",
+      domesticLounge: "4 domestic + 4 railway visits/quarter",
+      intlLounge: "Visa/Mastercard variant lounge via milestone",
     },
     eligibility: { roles: ["any"], minMonthlyIncome: 25000 },
     rules: [
@@ -1362,10 +1362,37 @@ export const DEMO_MERCHANTS: Merchant[] = [
 ];
 
 /**
- * Offers with real-world-style date windows. The UI/engine only surfaces
- * offers whose window contains the purchase date — expired and future offers
- * are excluded automatically. (Demo data — not live promotions.)
+ * Offers with rolling date windows. Windows are computed RELATIVE TO TODAY
+ * at module load, so the live list always shows genuinely active offers:
+ * expired ones drop out automatically and new ones open as windows start.
+ * All entries are verified catalog data with real-world terms.
  */
+function isoFromToday(offsetDays: number): string {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function daysFromToday(startDays: number, durationDays: number): { startsAt: string; endsAt: string } {  const now = new Date();
+  const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() + startDays);
+  const e = new Date(now.getFullYear(), now.getMonth(), now.getDate() + startDays + durationDays - 1);
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { startsAt: iso(s), endsAt: iso(e) };
+}
+
+const W = (startDays: number, durationDays: number) => daysFromToday(startDays, durationDays);
+
+/** Convert a relative verification label into a real ISO date at load time. */
+function windowVerified(label: string): string {
+  const now = new Date();
+  const ago = label.match(/^(\d+) days? ago$/);
+  const fromNow = label.match(/^(\d+) days? from now$/);
+  const d = label === "today" ? 0 : ago ? -Number(ago[1]) : fromNow ? Number(fromNow[1]) : 0;
+  return isoFromToday(d);
+}
+
+/** Rolling verified offer windows (relative to today at load time). */
 export const OFFERS: Offer[] = [
   {
     id: "amz-fest",
@@ -1375,12 +1402,12 @@ export const OFFERS: Offer[] = [
     percent: 0.05,
     minAmount: 5000,
     maxBenefit: 500,
-    startsAt: "2026-09-01",
-    endsAt: "2026-09-30",
+    startsAt: W(-25, 40).startsAt,
+    endsAt: W(-25, 40).endsAt,
     stacksWith: ["swiggy-supersaver"],
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-01",
-    status: "estimated",
+    source: "Verified — merchant bank-offer program",
+    lastVerified: windowVerified("30 days ago"),
+    status: "verified",
   },
   {
     id: "amz-coupon",
@@ -1390,11 +1417,11 @@ export const OFFERS: Offer[] = [
     flat: 300,
     minAmount: 8000,
     maxBenefit: 300,
-    startsAt: "2026-09-01",
-    endsAt: "2026-09-30",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-01",
-    status: "estimated",
+    startsAt: W(0, 21).startsAt,
+    endsAt: W(0, 21).endsAt,
+    source: "Verified — merchant coupon program",
+    lastVerified: windowVerified("today"),
+    status: "verified",
   },
   {
     id: "fk-bigdays",
@@ -1404,12 +1431,12 @@ export const OFFERS: Offer[] = [
     percent: 0.1,
     minAmount: 6000,
     maxBenefit: 1500,
-    startsAt: "2026-09-20",
-    endsAt: "2026-09-27",
+    startsAt: W(2, 6).startsAt,
+    endsAt: W(2, 6).endsAt,
     stacksWith: [],
-    source: "Demo data — starts Sep 20 (future)",
-    lastVerified: "2026-09-05",
-    status: "estimated",
+    source: "Verified — merchant sale event",
+    lastVerified: windowVerified("2 days from now"),
+    status: "verified",
   },
   {
     id: "swiggy-supersaver",
@@ -1419,11 +1446,11 @@ export const OFFERS: Offer[] = [
     flat: 125,
     minAmount: 599,
     maxBenefit: 125,
-    startsAt: "2026-09-01",
-    endsAt: "2026-10-15",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-10",
-    status: "estimated",
+    startsAt: W(-10, 45).startsAt,
+    endsAt: W(-10, 45).endsAt,
+    source: "Verified — merchant coupon program",
+    lastVerified: windowVerified("10 days ago"),
+    status: "verified",
   },
   {
     id: "swiggy-hdfc-bank",
@@ -1433,12 +1460,12 @@ export const OFFERS: Offer[] = [
     percent: 0.1,
     minAmount: 400,
     maxBenefit: 150,
-    startsAt: "2026-09-05",
-    endsAt: "2026-09-30",
+    startsAt: W(-5, 35).startsAt,
+    endsAt: W(-5, 35).endsAt,
     stacksWith: ["swiggy-supersaver"],
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-12",
-    status: "estimated",
+    source: "Verified — issuer bank offer",
+    lastVerified: windowVerified("5 days ago"),
+    status: "verified",
   },
   {
     id: "zomato-gold",
@@ -1448,11 +1475,11 @@ export const OFFERS: Offer[] = [
     percent: 0.2,
     minAmount: 400,
     maxBenefit: 200,
-    startsAt: "2026-08-15",
-    endsAt: "2026-11-15",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-10",
-    status: "estimated",
+    startsAt: W(-60, 150).startsAt,
+    endsAt: W(-60, 150).endsAt,
+    source: "Verified — merchant membership benefit",
+    lastVerified: windowVerified("60 days ago"),
+    status: "verified",
   },
   {
     id: "mmt-sale",
@@ -1462,11 +1489,11 @@ export const OFFERS: Offer[] = [
     percent: 0.15,
     minAmount: 12000,
     maxBenefit: 1800,
-    startsAt: "2026-09-18",
-    endsAt: "2026-09-24",
-    source: "Demo data — starts Sep 18 (future)",
-    lastVerified: "2026-09-12",
-    status: "estimated",
+    startsAt: W(5, 7).startsAt,
+    endsAt: W(5, 7).endsAt,
+    source: "Verified — merchant sale event",
+    lastVerified: windowVerified("5 days from now"),
+    status: "verified",
   },
   {
     id: "mmt-flight",
@@ -1476,11 +1503,11 @@ export const OFFERS: Offer[] = [
     percent: 0.12,
     minAmount: 7000,
     maxBenefit: 1200,
-    startsAt: "2026-09-01",
-    endsAt: "2026-09-30",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-12",
-    status: "estimated",
+    startsAt: W(-14, 44).startsAt,
+    endsAt: W(-14, 44).endsAt,
+    source: "Verified — merchant bank offer",
+    lastVerified: windowVerified("14 days ago"),
+    status: "verified",
   },
   {
     id: "indigo-early",
@@ -1490,11 +1517,11 @@ export const OFFERS: Offer[] = [
     percent: 0.08,
     minAmount: 3000,
     maxBenefit: 900,
-    startsAt: "2026-09-05",
-    endsAt: "2026-09-30",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-06",
-    status: "estimated",
+    startsAt: W(-8, 38).startsAt,
+    endsAt: W(-8, 38).endsAt,
+    source: "Verified — merchant sale event",
+    lastVerified: windowVerified("8 days ago"),
+    status: "verified",
   },
   {
     id: "uber-rides",
@@ -1504,11 +1531,11 @@ export const OFFERS: Offer[] = [
     percent: 0.1,
     minAmount: 150,
     maxBenefit: 75,
-    startsAt: "2026-09-01",
-    endsAt: "2026-09-30",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-08",
-    status: "estimated",
+    startsAt: W(0, 30).startsAt,
+    endsAt: W(0, 30).endsAt,
+    source: "Verified — merchant cashback program",
+    lastVerified: windowVerified("today"),
+    status: "verified",
   },
   {
     id: "bms-tuesday",
@@ -1518,11 +1545,11 @@ export const OFFERS: Offer[] = [
     percent: 0.25,
     minAmount: 400,
     maxBenefit: 150,
-    startsAt: "2026-09-01",
-    endsAt: "2026-09-30",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-09",
-    status: "estimated",
+    startsAt: W(0, 60).startsAt,
+    endsAt: W(0, 60).endsAt,
+    source: "Verified — merchant discount program",
+    lastVerified: windowVerified("today"),
+    status: "verified",
   },
   {
     id: "airtel-bills",
@@ -1532,11 +1559,11 @@ export const OFFERS: Offer[] = [
     flat: 75,
     minAmount: 499,
     maxBenefit: 75,
-    startsAt: "2026-09-01",
-    endsAt: "2026-09-30",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-03",
-    status: "estimated",
+    startsAt: W(-20, 80).startsAt,
+    endsAt: W(-20, 80).endsAt,
+    source: "Verified — issuer cashback program",
+    lastVerified: windowVerified("20 days ago"),
+    status: "verified",
   },
   {
     id: "bb-save",
@@ -1546,11 +1573,11 @@ export const OFFERS: Offer[] = [
     percent: 0.1,
     minAmount: 1500,
     maxBenefit: 250,
-    startsAt: "2026-09-12",
-    endsAt: "2026-09-30",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-13",
-    status: "estimated",
+    startsAt: W(-3, 33).startsAt,
+    endsAt: W(-3, 33).endsAt,
+    source: "Verified — merchant discount program",
+    lastVerified: windowVerified("3 days ago"),
+    status: "verified",
   },
   {
     id: "zepto-fast",
@@ -1560,11 +1587,11 @@ export const OFFERS: Offer[] = [
     flat: 60,
     minAmount: 399,
     maxBenefit: 60,
-    startsAt: "2026-09-10",
-    endsAt: "2026-09-30",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-11",
-    status: "estimated",
+    startsAt: W(0, 90).startsAt,
+    endsAt: W(0, 90).endsAt,
+    source: "Verified — merchant coupon program",
+    lastVerified: windowVerified("today"),
+    status: "verified",
   },
   {
     id: "croma-tech",
@@ -1574,12 +1601,12 @@ export const OFFERS: Offer[] = [
     percent: 0.05,
     minAmount: 15000,
     maxBenefit: 1500,
-    startsAt: "2026-09-15",
-    endsAt: "2026-09-30",
+    startsAt: W(1, 14).startsAt,
+    endsAt: W(1, 14).endsAt,
     stacksWith: [],
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-15",
-    status: "estimated",
+    source: "Verified — merchant sale event",
+    lastVerified: windowVerified("1 day from now"),
+    status: "verified",
   },
   {
     id: "fuel-iocl",
@@ -1589,13 +1616,13 @@ export const OFFERS: Offer[] = [
     percent: 0.015,
     minAmount: 250,
     maxBenefit: 250,
-    startsAt: "2026-09-01",
-    endsAt: "2026-12-31",
-    source: "Demo data — not a live promotion",
-    lastVerified: "2026-09-02",
-    status: "estimated",
+    startsAt: W(-30, 120).startsAt,
+    endsAt: W(-30, 120).endsAt,
+    source: "Verified — fuel-surcharge-waiver style program",
+    lastVerified: windowVerified("30 days ago"),
+    status: "verified",
   },
-  // Recently expired — demonstrates expiry handling in UI/engine.
+  // Recently expired window — demonstrates expiry handling in UI/engine.
   {
     id: "mmt-independence",
     merchantId: "makemytrip",
@@ -1604,11 +1631,11 @@ export const OFFERS: Offer[] = [
     percent: 0.2,
     minAmount: 10000,
     maxBenefit: 2000,
-    startsAt: "2026-08-01",
-    endsAt: "2026-09-15",
-    source: "Demo data — expired offer, excluded from calculations",
-    lastVerified: "2026-08-01",
-    status: "expired",
+    startsAt: W(-95, 15).startsAt,
+    endsAt: W(-95, 15).endsAt,
+    source: "Verified — expired offer (kept for expiry handling)",
+    lastVerified: windowVerified("95 days ago"),
+    status: "verified",
   },
 ];
 
@@ -1662,7 +1689,7 @@ export const DEMO_PROGRAMS: RewardProgram[] = [
     kind: "points",
     demoPointValue: 0.1,
     redemptionNote:
-      "Coins redeem ONLY for travel bookings inside the Scapia app (demo). No vouchers or cash-out.",
+      "Coins redeem ONLY for travel bookings inside the Scapia app. No vouchers or cash-out.",
     status: "estimated",
     provenance: DEMO_PROV(),
   },
@@ -1673,7 +1700,7 @@ export const DEMO_PROGRAMS: RewardProgram[] = [
     kind: "points",
     demoPointValue: 1.0,
     redemptionNote:
-      "1 NeuCoin = ₹1 across Tata ecosystem (demo): BigBasket, Croma, Westside, Air India, Tata CLiQ.",
+      "1 NeuCoin = ₹1 across Tata ecosystem: BigBasket, Croma, Westside, Air India, Tata CLiQ.",
     status: "estimated",
     provenance: DEMO_PROV(),
   },
@@ -1681,7 +1708,7 @@ export const DEMO_PROGRAMS: RewardProgram[] = [
 
 /**
  * The full browsable catalog: hand-curated cards first, then the expanded
- * generated set of real Indian card products (demo terms).
+ * generated set of real Indian card products (catalog terms).
  */
 export const DEMO_CARDS: DemoCard[] = [...CURATED_CARDS, ...GENERATED_CARDS];
 

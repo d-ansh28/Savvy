@@ -16,7 +16,7 @@ import {
 import { SavvyLogo } from "@/components/SavvyLogo";
 
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
+import { ArrowRight, Loader2, Mail } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -89,21 +89,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
-  const handleGuestLogin = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      await signIn("anonymous");
-      navigate(redirect);
-    } catch (error) {
-      console.error("Guest login error:", error);
-      setError(
-        `Failed to sign in as guest: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="nb-grid-bg flex min-h-screen flex-col">
       <header className="border-b-2 border-line bg-background">
@@ -154,30 +139,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </Button>
                     </div>
                     {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-
-                    <div className="mt-4">
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t-2 border-dashed border-line/40" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-card px-2 text-muted-foreground">
-                            Or
-                          </span>
-                        </div>
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="mt-4 w-full"
-                        onClick={handleGuestLogin}
-                        disabled={isLoading}
-                      >
-                        <UserX className="mr-2 size-4" />
-                        Continue as Guest
-                      </Button>
-                    </div>
                   </CardContent>
                 </form>
               </>

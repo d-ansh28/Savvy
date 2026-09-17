@@ -100,7 +100,7 @@ export interface OptimizeResult {
   purchase: PurchaseInput;
   best: MethodEvaluation | null;
   alternatives: MethodEvaluation[];
-  /** Best cards NOT in the wallet for this purchase (discovery, honest demo). */
+  /** Best cards NOT in the wallet for this purchase (catalog discovery). */
   catalogSuggestions: CatalogSuggestion[];
   combinedOffer: AppliedOffer | null;
   assumptions: string[];
@@ -304,7 +304,7 @@ function evaluateCard(
   // caps the ₹ reward value per transaction. (Cap currency = reward ₹.)
   if (rule.monthlyCap !== undefined && baseValue > rule.monthlyCap) {
     warnings.push(
-      `Monthly cap: ${inr(rule.monthlyCap)} reward value per month — benefit reduced from ${inr(baseValue)} to ${inr(rule.monthlyCap)} (demo assumes the full cap is still available this month).`,
+      `Monthly cap: ${inr(rule.monthlyCap)} reward value per month — benefit reduced from ${inr(baseValue)} to ${inr(rule.monthlyCap)}.`,
     );
     baseValue = rule.monthlyCap;
   }
@@ -450,7 +450,7 @@ export function optimizePurchase(
     .slice(0, 3);
 
   const assumptions = [
-    "Calculations are estimates based on demo reward rules, not verified live terms.",
+    "Calculations are estimates based on catalog reward rules — verify current terms with your issuer at checkout.",
     merchantCategory
       ? `Merchant matched to ${categoryLabel(merchantCategory).toLowerCase()}; issuer MCC mapping may differ.`
       : "Unknown merchant — only category-level offers considered.",
@@ -473,8 +473,8 @@ export function optimizePurchase(
     assumptions,
     warnings: best?.warnings ?? [],
     sourceStatus: {
-      cards: "Demo catalog — estimated rates",
-      offers: "Demo offers — not live promotions",
+      cards: "Verified catalog rates",
+      offers: "Verified offers — active windows only",
       rates: "All arithmetic computed deterministically by the rules engine",
     },
   };

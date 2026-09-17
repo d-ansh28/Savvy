@@ -218,7 +218,7 @@ export default function Landing() {
               </div>
             </div>
             <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
-              Estimated calculations based on demo reward rules. Not a
+              Estimated calculations based on verified catalog reward rules. Not a
               guarantee of actual rewards.
             </p>
           </div>

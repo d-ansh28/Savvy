@@ -193,8 +193,8 @@ export default function Dashboard() {
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Add your first card to start optimizing purchases, or load a
-                demo wallet with 4 cards and 3 reward balances to explore the
-                product instantly.
+                starter wallet with 4 cards and 3 reward balances to explore
+                the product instantly.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button asChild>
@@ -204,7 +204,7 @@ export default function Dashboard() {
                 </Button>
                 <Button variant="outline" onClick={handleSeed} disabled={seeding}>
                   <Sparkles className="size-4" />
-                  {seeding ? "Loading demo wallet…" : "Load demo wallet"}
+                  {seeding ? "Loading starter wallet…" : "Load starter wallet"}
                 </Button>
               </div>
             </CardContent>

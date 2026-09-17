@@ -173,9 +173,9 @@ export default function Wallet() {
     setSeeding(true);
     try {
       await seedDemo({});
-      toast.success("Demo wallet loaded");
+      toast.success("Starter wallet loaded");
     } catch {
-      toast.error("Couldn't load the demo wallet.");
+      toast.error("Couldn't load the starter wallet.");
     } finally {
       setSeeding(false);
     }
@@ -201,7 +201,7 @@ export default function Wallet() {
             {cards.length === 0 && (
               <Button variant="outline" onClick={handleSeed} disabled={seeding}>
                 <Sparkles className="size-4" />
-                {seeding ? "Loading…" : "Load demo wallet"}
+                {seeding ? "Loading…" : "Load starter wallet"}
               </Button>
             )}
             <Button onClick={() => setAddOpen((v) => !v)}>
@@ -439,7 +439,7 @@ export default function Wallet() {
               </h3>
               <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
                 Add your first card from the {DEMO_CARDS.length}-card catalog to
-                unlock purchase optimization — or load the demo wallet to
+                unlock purchase optimization — or load the starter wallet to
                 explore instantly.
               </p>
               <Button className="mt-5" onClick={() => setAddOpen(true)}>

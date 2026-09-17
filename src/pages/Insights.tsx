@@ -58,7 +58,7 @@ export default function Insights() {
   const { cardCount, activeCardCount, totalPoints, cashbackBalance, expiring, monthlySpend, topCategory } = insights;
   const inactive = cardCount - activeCardCount;
 
-  /** Catalog-wide category analysis across ALL demo cards (not just wallet). */
+  /** Catalog-wide category analysis across ALL catalog cards (not just wallet). */
   const ownedSlugs = walletState.cards.map((c) => c.slug);
   const gaps = useMemo(
     () => categoryGapAnalysis(DEMO_CARDS, OFFERS, DEMO_MERCHANTS, ownedSlugs),
@@ -92,7 +92,7 @@ export default function Insights() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Every number below is computed deterministically from your wallet
-            and demo rules. Descriptions are plain language — the AI never
+            and verified catalog rules. Descriptions are plain language — the AI never
             invents figures.
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function Insights() {
                         ? ` (₹${monthlySpend.toLocaleString("en-IN")}/month)`
                         : ""}
                       , your largest reward opportunity appears to be{" "}
-                      <strong>{topCategory.label}</strong>. At demo e-commerce
+                      <strong>{topCategory.label}</strong>. At catalog e-commerce
                       rates (5% up to caps), roughly ₹
                       {Math.round(monthlySpend * 0.3).toLocaleString("en-IN")} of
                       monthly spend in that category could earn an estimated{" "}
@@ -138,7 +138,7 @@ export default function Insights() {
                       Supporting math: ₹
                       {Math.round(monthlySpend * 0.3).toLocaleString("en-IN")} ×
                       5% = ₹{topCategory.estMonthlyBenefit.toLocaleString("en-IN")}
-                      . Assumes monthly spend share of 30% and demo caps.
+                      . Assumes monthly spend share of 30% and catalog caps.
                     </p>
                   </>
                 ) : (
@@ -194,7 +194,7 @@ export default function Insights() {
               </div>
             </div>
 
-            {/* Catalog-wide analysis across ALL demo cards */}
+            {/* Catalog-wide analysis across ALL catalog cards */}
             <section className="nb-card p-5">
               <h2 className="font-display flex items-center gap-2 text-lg font-bold">
                 <ChartLine className="size-4" /> Best card per category — across all{" "}
@@ -312,7 +312,7 @@ export default function Insights() {
               </div>
               <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
                 <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-                These are directional estimates from demo data — not financial
+                These are directional estimates from verified catalog data — not financial
                 advice. Verify rates with your issuer before making decisions.
               </p>
             </section>

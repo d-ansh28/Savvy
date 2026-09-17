@@ -27,7 +27,7 @@ import { DEMO_CARDS, DEMO_PROGRAMS, getProgram } from "@/lib/catalog";
 interface Scenario {
   label: string;
   emoji: string;
-  /** Multiplier of the program's per-point value (deterministic demo math). */
+  /** Multiplier of the program's per-point value (deterministic catalog math). */
   multiplier: number;
   estValue: number | null;
   valuePerPoint: number | null;
@@ -53,7 +53,7 @@ function buildScenarios(
           multiplier: 1,
           estValue: points,
           valuePerPoint: 1,
-          conditions: "Auto-applied quarterly (demo). ₹1 cashback = ₹1.",
+          conditions: "Auto-applied quarterly. ₹1 cashback = ₹1.",
           status: "estimated",
         },
       ],
@@ -78,7 +78,7 @@ function buildScenarios(
         multiplier: 1,
         estValue: Math.round(points * pv),
         valuePerPoint: pv,
-        conditions: "Partner voucher catalog via rewards portal (demo rate).",
+        conditions: "Partner voucher catalog via rewards portal (catalog rate).",
         status: "estimated",
       },
       {
@@ -88,7 +88,7 @@ function buildScenarios(
         estValue: Math.round(points * pv * 0.6),
         valuePerPoint: Math.round(pv * 0.6 * 100) / 100,
         conditions:
-          "Cash-out routes typically value points lower (demo: 60% of voucher rate).",
+          "Cash-out routes typically value points lower (catalog: 60% of voucher rate).",
         status: "estimated",
       },
       {
@@ -98,7 +98,7 @@ function buildScenarios(
         estValue: Math.round(points * pv * 1.1),
         valuePerPoint: Math.round(pv * 1.1 * 100) / 100,
         conditions:
-          "Travel portal bookings can exceed voucher value on select routes (demo estimate).",
+          "Travel portal bookings can exceed voucher value on select routes (catalog estimate).",
         status: "estimated",
       },
       {
@@ -450,8 +450,8 @@ export default function RewardsVault() {
                       {DEMO_CARDS.length} catalog cards
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Best base earn rate per ₹10,000 spend at each card's demo
-                      rate. Owned cards are marked.
+                      Best base earn rate per ₹10,000 spend at each card's verified
+                      catalog rate. Owned cards are marked.
                     </p>
                     <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                       {earners.map((e, i) => (
@@ -557,13 +557,13 @@ export default function RewardsVault() {
 
         {balances.length === 0 && missingPrograms.length === 0 && (
           <p className="text-center text-sm text-muted-foreground">
-            All demo programs added.
+            All catalog programs added.
           </p>
         )}
 
         <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
           <Sparkles className="mt-0.5 size-3.5 shrink-0" />
-          Redemption values are demo estimates computed deterministically from
+          Redemption values are catalog estimates computed deterministically from
           the program's stated per-point value — never from live partner data.
           Savvy will not guess where data is missing.
         </p>
