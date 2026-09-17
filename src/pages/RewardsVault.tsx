@@ -462,7 +462,7 @@ export default function RewardsVault() {
                           <span className="tnum w-4 text-center text-xs font-black text-muted-foreground">
                             {i + 1}
                           </span>
-                          <div className="w-16 shrink-0">
+                          <div className="w-44 shrink-0">
                             <CardVisual card={e.card} compact />
                           </div>
                           <div className="min-w-0 flex-1">
