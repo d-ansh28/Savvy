@@ -8,10 +8,12 @@ const schema = defineSchema({
   users: defineTable({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
-    image: v.optional(v.string()),
     emailVerificationTime: v.optional(v.number()),
+    image: v.optional(v.string()),
     isAnonymous: v.optional(v.boolean()),
     role: v.optional(v.string()),
+    /** Email+password auth (scrypt hash — never the password itself). */
+    passwordHash: v.optional(v.string()),
   }).index("email", ["email"]),
 
   /**
