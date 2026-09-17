@@ -232,7 +232,7 @@ export default function Insights() {
                         <CardVisual
                           card={g.catalogBest.card}
                           compact
-                          className="w-44 shrink-0"
+                          className="w-52 shrink-0"
                         />
                         <div className="min-w-0">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -254,7 +254,7 @@ export default function Insights() {
                             <CardVisual
                               card={have.card}
                               compact
-                              className="w-44 shrink-0"
+                              className="w-52 shrink-0"
                             />
                             <div className="min-w-0">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -267,7 +267,7 @@ export default function Insights() {
                             </div>
                           </>
                         ) : (
-                          <div className="nb-flat flex h-32 w-44 shrink-0 items-center justify-center bg-secondary/60 px-3 text-center text-xs text-muted-foreground">
+                          <div className="nb-flat flex h-32 w-52 shrink-0 items-center justify-center bg-secondary/60 px-3 text-center text-xs text-muted-foreground">
                             Nothing earns here yet
                           </div>
                         )}
