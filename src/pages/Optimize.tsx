@@ -445,7 +445,11 @@ export default function Optimize() {
                         />
                         <BenefitRow
                           label="Points"
-                          value={result.best.points.toLocaleString("en-IN")}
+                          value={
+                            result.best.points > 0
+                              ? `${result.best.points.toLocaleString("en-IN")}${result.best.pointsValue > 0 ? ` (₹${result.best.pointsValue.toLocaleString("en-IN")} value)` : ""}`
+                              : "0"
+                          }
                         />
                         <BenefitRow
                           label="Total estimated benefit"
@@ -553,6 +557,43 @@ export default function Optimize() {
                     <MethodRow key={m.slug} method={m} />
                   ))}
                 </div>
+              </section>
+            )}
+
+            {/* OUTSIDE-WALLET DISCOVERY */}
+            {result.catalogSuggestions.length > 0 && (
+              <section>
+                <h2 className="font-display text-lg font-bold tracking-tight">
+                  Not in your wallet yet — could earn more here
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Deterministic catalog estimates for cards you don't own. Demo
+                  terms — verify with the issuer before applying.
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  {result.catalogSuggestions.map((s) => (
+                    <div key={s.slug} className="nb-flat bg-card p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {s.issuer}
+                      </p>
+                      <p className="font-display text-sm font-bold">{s.name}</p>
+                      <p className="tnum font-display mt-1 text-lg font-bold text-primary">
+                        ₹{s.estimatedBenefit.toLocaleString("en-IN")}
+                      </p>
+                      <p className="tnum text-[10px] text-muted-foreground">
+                        est. benefit · fee ₹{s.annualFee.toLocaleString("en-IN")}/yr
+                      </p>
+                      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                        {s.why}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <Button asChild variant="outline" size="sm" className="mt-3">
+                  <Link to="/wallet">
+                    Browse the 200+ card catalog <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
               </section>
             )}
 

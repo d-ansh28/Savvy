@@ -10,7 +10,7 @@ import {
   type PurchaseInput,
   optimizePurchase,
 } from "../lib/engine";
-import { DEMO_CARDS, OFFERS } from "../lib/catalog";
+import { DEMO_CARDS, OFFERS, DEMO_MERCHANTS } from "../lib/catalog";
 import { runsLimitForPlan } from "../lib/pricing";
 
 /**
@@ -50,7 +50,6 @@ export const purchaseOptimize = action({
       // Don't burn a free run on a wallet that can't produce a result.
       throw new Error("NO_ACTIVE_CARDS");
     }
-    const monthlySpendAlready = Math.round(wallet.profile?.monthlySpend ?? 0);
 
     const purchase: PurchaseInput = {
       merchantName,
@@ -66,7 +65,7 @@ export const purchaseOptimize = action({
       DEMO_CARDS,
       OFFERS,
       purchase,
-      monthlySpendAlready,
+      DEMO_MERCHANTS,
     );
 
     // Record + consume one run only after a successful computation.
@@ -110,15 +109,36 @@ export const explainRecommendation = action({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
+        { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
       maxTokens: 500,
+    }).catch((e: unknown) => {
+      console.error("vly.ai.completion failed:", e);
+      return { success: false as const, error: "AI service unavailable" };
     });
 
     if (!response.success || !response.data) {
-      throw new Error(response.error || "AI service unavailable");
+      // Graceful degradation: a deterministic fallback instead of an error,
+      // so the UI always has an explanation grounded in the exact numbers.
+      return { explanation: deterministicExplanation(args.result) };
     }
     return { explanation: response.data.choices[0]?.message?.content ?? "" };
   },
 });
+
+/** Deterministic fallback explanation built ONLY from the engine's numbers. */
+function deterministicExplanation(r: {
+  best?: { issuer?: string; name?: string; totalBenefit?: number; effectiveCost?: number; cashback?: number; points?: number; offer?: { benefit?: number } | null } | null;
+}): string {
+  if (!r.best) {
+    return "No payment method in your wallet produced a positive estimated benefit for this purchase.";
+  }
+  const b = r.best;
+  const parts: string[] = [];
+  if (b.cashback && b.cashback > 0) parts.push(`estimated cashback of ₹${Math.round(b.cashback).toLocaleString("en-IN")}`);
+  if (b.offer?.benefit && b.offer.benefit > 0) parts.push(`eligible offer worth ₹${Math.round(b.offer.benefit).toLocaleString("en-IN")}`);
+  if (b.points && b.points > 0) parts.push(`${Math.round(b.points).toLocaleString("en-IN")} points/miles earned (deferred value)`);
+  const benefitText = parts.length > 0 ? parts.join(", ") : "no direct benefit on this spend";
+  return `Using the ${b.issuer ?? ""} ${b.name ?? ""} gives a total estimated benefit of ₹${Math.round(b.totalBenefit ?? 0).toLocaleString("en-IN")} — ${benefitText}. Cashback and offers are money back now, so your effective cost is ₹${Math.round(b.effectiveCost ?? 0).toLocaleString("en-IN")}. Points are value earned on top and can be redeemed later. These are estimates from demo reward rules, not guaranteed savings.`;
+}

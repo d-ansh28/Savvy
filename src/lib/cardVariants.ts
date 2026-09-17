@@ -337,9 +337,9 @@ function rulesFor(slug: string, profile: ProfileId): RewardRule[] {
       ];
     case "miles":
       return [
-        R({ id: `${slug}-base`, kind: "miles", pointsPer100: 4, pointValue: 1, status: "estimated", note: "Base: 4 miles per ₹100 (demo)" }),
-        R({ id: `${slug}-fl`, kind: "miles", pointsPer100: 16, pointValue: 1, category: "flights", monthlyCap: 3000, status: "estimated", note: "16X on flights, capped (demo)" }),
-        R({ id: `${slug}-hot`, kind: "miles", pointsPer100: 16, pointValue: 1, category: "hotels", monthlyCap: 3000, status: "estimated" }),
+        R({ id: `${slug}-base`, kind: "miles", pointsPer100: 2, pointValue: 1, status: "estimated", note: "Base: 2 miles per ₹100 (demo)" }),
+        R({ id: `${slug}-fl`, kind: "miles", pointsPer100: 6, pointValue: 1, category: "flights", monthlyCap: 3000, status: "estimated", note: "6 miles per ₹100 on flights, reward capped ₹3,000/mo (demo)" }),
+        R({ id: `${slug}-hot`, kind: "miles", pointsPer100: 6, pointValue: 1, category: "hotels", monthlyCap: 3000, status: "estimated" }),
       ];
     case "online":
       return [

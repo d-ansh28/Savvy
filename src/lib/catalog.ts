@@ -153,6 +153,12 @@ export interface Offer {
   startsAt: string;
   endsAt: string;
   stacksWith?: string[];
+  /** When set, only cards from these issuer substrings can avail (demo). */
+  eligibleIssuers?: string[];
+  /** When set, only cards on these networks can avail (demo). */
+  eligibleNetworks?: Network[];
+  /** Category fallback so unknown merchants can still match category offers. */
+  merchantCategory?: Category;
   source: string;
   lastVerified: string;
   status: SourceStatus;
@@ -266,7 +272,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "rg-travel",
         kind: "points",
-        pointsPer100: 200,
+        pointsPer100: 4,
         pointValue: 0.5,
         category: "travel",
         status: "estimated",
@@ -276,7 +282,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "rg-base",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 2,
         pointValue: 0.5,
         status: "estimated",
         note: "2 RPs per ₹100 base (demo)",
@@ -313,16 +319,16 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "inf-base",
         kind: "points",
-        pointsPer100: 165,
+        pointsPer100: 3.3,
         pointValue: 1.0,
         status: "estimated",
-        note: "3.3% equivalent on SmartBuy redemptions (demo)",
+        note: "~3.3% equivalent on SmartBuy redemptions (demo)",
         provenance: DEMO_PROV(),
       },
       {
         id: "inf-smartbuy",
         kind: "points",
-        pointsPer100: 825,
+        pointsPer100: 16.5,
         pointValue: 1.0,
         category: "travel",
         monthlyCap: 15000,
@@ -359,7 +365,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "dinb-travel",
         kind: "points",
-        pointsPer100: 165,
+        pointsPer100: 16.5,
         pointValue: 0.5,
         category: "travel",
         monthlyCap: 15000,
@@ -370,7 +376,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "dinb-base",
         kind: "points",
-        pointsPer100: 33,
+        pointsPer100: 3.3,
         pointValue: 0.5,
         status: "estimated",
         note: "1x base RP",
@@ -479,7 +485,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "oct-fuel",
         kind: "points",
-        pointsPer100: 400,
+        pointsPer100: 40,
         pointValue: 0.1,
         category: "fuel",
         monthlyCap: 1000,
@@ -490,7 +496,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "oct-base",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 10,
         pointValue: 0.1,
         status: "estimated",
         note: "1% equivalent elsewhere",
@@ -652,7 +658,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "atlas-travel",
         kind: "miles",
-        pointsPer100: 10,
+        pointsPer100: 5,
         pointValue: 1.0,
         category: "travel",
         status: "estimated",
@@ -697,16 +703,16 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "mag-base",
         kind: "points",
-        pointsPer100: 120,
+        pointsPer100: 6,
         pointValue: 1.0,
         status: "estimated",
-        note: "12 EDGE points per ₹100 (demo)",
+        note: "6 EDGE points per ₹100 (demo)",
         provenance: DEMO_PROV(),
       },
       {
         id: "mag-gateway",
         kind: "points",
-        pointsPer100: 240,
+        pointsPer100: 12,
         pointValue: 1.0,
         category: "flights",
         monthlyCap: 20000,
@@ -774,7 +780,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "coral-base",
         kind: "points",
-        pointsPer100: 200,
+        pointsPer100: 2,
         pointValue: 0.25,
         status: "estimated",
         note: "2 points per ₹100 (demo)",
@@ -802,7 +808,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "tiger-online",
         kind: "points",
-        pointsPer100: 400,
+        pointsPer100: 4,
         pointValue: 0.2,
         status: "estimated",
         note: "4x points on online spends (demo)",
@@ -811,7 +817,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "tiger-base",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 1,
         pointValue: 0.2,
         status: "estimated",
         note: "1x base points",
@@ -849,18 +855,18 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "scapia-travel",
         kind: "points",
-        pointsPer100: 1000,
+        pointsPer100: 100,
         pointValue: 0.1,
         category: "travel",
         monthlyCap: 1000,
         status: "estimated",
-        note: "10% back in Scapia coins on travel (cap 1,000 coins/mo)",
+        note: "10% back in Scapia coins on travel (reward value capped ₹1,000/mo)",
         provenance: DEMO_PROV(),
       },
       {
         id: "scapia-base",
         kind: "points",
-        pointsPer100: 200,
+        pointsPer100: 20,
         pointValue: 0.1,
         status: "estimated",
         note: "2% back in coins on everything else",
@@ -1003,7 +1009,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "one-base",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 1,
         pointValue: 0.25,
         status: "estimated",
         note: "1 point per ₹100 (5x on top 2 categories, demo simplified)",
@@ -1031,7 +1037,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "idfm-boosted",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 10,
         pointValue: 0.25,
         minAmount: 20000,
         status: "estimated",
@@ -1041,7 +1047,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "idfm-base",
         kind: "points",
-        pointsPer100: 30,
+        pointsPer100: 3,
         pointValue: 0.25,
         status: "estimated",
         note: "3x points otherwise",
@@ -1068,7 +1074,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "idfs-boosted",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 10,
         pointValue: 0.25,
         minAmount: 20000,
         status: "estimated",
@@ -1078,7 +1084,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "idfs-base",
         kind: "points",
-        pointsPer100: 30,
+        pointsPer100: 3,
         pointValue: 0.25,
         status: "estimated",
         note: "3x points otherwise",
@@ -1109,7 +1115,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "idfw-boosted",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 10,
         pointValue: 0.25,
         minAmount: 20000,
         status: "estimated",
@@ -1119,7 +1125,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "idfw-base",
         kind: "points",
-        pointsPer100: 30,
+        pointsPer100: 3,
         pointValue: 0.25,
         status: "estimated",
         note: "3x points otherwise",
@@ -1148,7 +1154,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "kfg-boosted",
         kind: "points",
-        pointsPer100: 400,
+        pointsPer100: 4,
         pointValue: 0.2,
         monthlyCap: 1000,
         status: "estimated",
@@ -1158,7 +1164,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "kfg-base",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 1,
         pointValue: 0.2,
         status: "estimated",
         note: "1x base points",
@@ -1184,7 +1190,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "hsbc-dining",
         kind: "points",
-        pointsPer100: 267,
+        pointsPer100: 2.67,
         pointValue: 0.15,
         category: "dining",
         status: "estimated",
@@ -1194,7 +1200,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "hsbc-base",
         kind: "points",
-        pointsPer100: 133,
+        pointsPer100: 1.33,
         pointValue: 0.15,
         status: "estimated",
         note: "2 points per ₹150 base",
@@ -1228,7 +1234,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "ete-travel",
         kind: "points",
-        pointsPer100: 300,
+        pointsPer100: 3,
         pointValue: 0.25,
         category: "travel",
         status: "estimated",
@@ -1238,7 +1244,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "ete-base",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 1,
         pointValue: 0.25,
         status: "estimated",
         note: "1x base points",
@@ -1271,7 +1277,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "amex-dining",
         kind: "points",
-        pointsPer100: 200,
+        pointsPer100: 10,
         pointValue: 0.4,
         category: "dining",
         monthlyCap: 5000,
@@ -1282,7 +1288,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "amex-base",
         kind: "points",
-        pointsPer100: 100,
+        pointsPer100: 2,
         pointValue: 0.4,
         status: "estimated",
         note: "2 MR points per ₹100 base",
@@ -1313,7 +1319,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "neu-tata",
         kind: "points",
-        pointsPer100: 500,
+        pointsPer100: 5,
         pointValue: 1.0,
         monthlyCap: 2000,
         status: "estimated",
@@ -1323,7 +1329,7 @@ const CURATED_CARDS: DemoCard[] = [
       {
         id: "neu-base",
         kind: "points",
-        pointsPer100: 150,
+        pointsPer100: 1.5,
         pointValue: 1.0,
         status: "estimated",
         note: "1.5% NeuCoins elsewhere",
