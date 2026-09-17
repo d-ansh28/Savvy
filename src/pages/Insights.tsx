@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/AppShell";
-import { CardVisual } from "@/components/CardVisual";
+import { CardVisualMini } from "@/components/CardVisual";
 import { categoryGapAnalysis } from "@/lib/engine";
 import {
   DEMO_CARDS,
@@ -229,9 +229,8 @@ export default function Insights() {
 
                       {/* Catalog winner */}
                       <div className="flex flex-1 items-center gap-3">
-                        <CardVisual
+                        <CardVisualMini
                           card={g.catalogBest.card}
-                          compact
                           className="w-28 shrink-0"
                         />
                         <div className="min-w-0">
@@ -251,9 +250,8 @@ export default function Insights() {
                       <div className="flex flex-1 items-center gap-3">
                         {have ? (
                           <>
-                            <CardVisual
+                            <CardVisualMini
                               card={have.card}
-                              compact
                               className="w-28 shrink-0"
                             />
                             <div className="min-w-0">

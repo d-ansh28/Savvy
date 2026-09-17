@@ -155,6 +155,60 @@ function FaceMotif({
   );
 }
 
+/**
+ * Tiny clean card face for dense comparison lists (Insights, leaderboards):
+ * issuer wordmark + chip + network mark only — no crowded fine print.
+ */
+export function CardVisualMini({
+  card,
+  className,
+}: {
+  card: DemoCard;
+  className?: string;
+}) {
+  const art = useMemo(() => artFor(card), [card]);
+  const face = useMemo(() => OFFICIAL_FACES[card.slug], [card.slug]);
+
+  return (
+    <div
+      className={cn(
+        "nb-flat relative flex aspect-[8/5] w-full flex-col justify-between overflow-hidden p-2.5",
+        className,
+      )}
+      style={{
+        background: face ? face.bg : `linear-gradient(135deg, ${art.from} 0%, ${art.to} 100%)`,
+        color: face ? face.ink : art.ink,
+      }}
+    >
+      {!face && art.band && (
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-1/3"
+          style={{ background: art.band }}
+        />
+      )}
+      <div className="relative flex items-start justify-between gap-1.5">
+        <p className="min-w-0 truncate text-[9px] leading-tight font-black tracking-wide uppercase">
+          {face?.coBrand ? face.wordmark ?? card.issuer : card.issuer}
+        </p>
+        <NetworkMark network={card.network} upi={card.perks?.upi} />
+      </div>
+      <div className="relative flex items-end justify-between gap-1.5">
+        <div className="flex h-5 w-8 items-center justify-center rounded-[3px] border border-yellow-200/60 bg-gradient-to-br from-yellow-100 via-yellow-300 to-yellow-500">
+          <div className="grid h-2.5 w-5 grid-cols-3 gap-px p-0.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <span key={i} className="bg-amber-700/25" />
+            ))}
+          </div>
+        </div>
+        <p className="truncate text-[8px] font-bold tracking-wider uppercase opacity-80">
+          {card.rewardType === "cashback" ? "Cash" : card.rewardType === "miles" ? "Miles" : "Pts"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function CardVisual({
   card,
   last4,
