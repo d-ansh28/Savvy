@@ -205,69 +205,85 @@ export default function Insights() {
                 with the best card you own. "Gap" is the estimated monthly value
                 a stronger card could capture at the sample spend shown.
               </p>
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <th className="pb-2 pr-3">Category</th>
-                      <th className="pb-2 pr-3">Catalog winner</th>
-                      <th className="pb-2 pr-3">Your best</th>
-                      <th className="pb-2 text-right">Monthly gap</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topGaps.map((g) => {
-                      const have = g.ownedBest;
-                      return (
-                        <tr key={g.category} className="border-b last:border-0">
-                          <td className="py-2.5 pr-3 font-bold">
-                            {g.categoryEmoji} {g.categoryLabel}
-                          </td>
-                          <td className="py-2.5 pr-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-14 shrink-0">
-                                <CardVisual card={g.catalogBest.card} compact />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-xs font-bold">
-                                  {g.catalogBest.name}
-                                </p>
-                                <p className="tnum text-[10px] text-muted-foreground">
-                                  ₹{Math.round(g.catalogBest.totalBenefit).toLocaleString("en-IN")} on ₹
-                                  {g.sampleAmount.toLocaleString("en-IN")}
-                                </p>
-                              </div>
+              {/* Vertical rows — card faces render at full aspect ratio, never cropped */}
+              <div className="mt-4 divide-y">
+                {topGaps.map((g) => {
+                  const have = g.ownedBest;
+                  return (
+                    <div
+                      key={g.category}
+                      className="flex flex-col gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
+                    >
+                      {/* Category */}
+                      <div className="sm:w-40 sm:shrink-0">
+                        <p className="font-bold">
+                          {g.categoryEmoji} {g.categoryLabel}
+                        </p>
+                        <p className="tnum text-[11px] text-muted-foreground">
+                          sample ₹{g.sampleAmount.toLocaleString("en-IN")}/mo
+                        </p>
+                      </div>
+
+                      {/* Catalog winner */}
+                      <div className="flex flex-1 items-center gap-3">
+                        <CardVisual
+                          card={g.catalogBest.card}
+                          compact
+                          className="w-28 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Catalog winner
+                          </p>
+                          <p className="truncate text-sm font-bold">
+                            {g.catalogBest.name}
+                          </p>
+                          <p className="tnum text-xs text-muted-foreground">
+                            ₹{Math.round(g.catalogBest.totalBenefit).toLocaleString("en-IN")} est. benefit
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Your best */}
+                      <div className="flex flex-1 items-center gap-3">
+                        {have ? (
+                          <>
+                            <CardVisual
+                              card={have.card}
+                              compact
+                              className="w-28 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                Your best
+                              </p>
+                              <p className="truncate text-sm font-bold">{have.name}</p>
+                              <p className="tnum text-xs text-muted-foreground">
+                                ₹{Math.round(have.totalBenefit).toLocaleString("en-IN")} est. benefit
+                              </p>
                             </div>
-                          </td>
-                          <td className="py-2.5 pr-3">
-                            {have ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-14 shrink-0">
-                                  <CardVisual card={have.card} compact />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="truncate text-xs font-bold">{have.name}</p>
-                                  <p className="tnum text-[10px] text-muted-foreground">
-                                    ₹{Math.round(have.totalBenefit).toLocaleString("en-IN")}
-                                  </p>
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                Nothing earns here yet
-                              </span>
-                            )}
-                          </td>
-                          <td className="tnum py-2.5 text-right font-black">
-                            {g.monthlyGap > 0
-                              ? `+₹${Math.round(g.monthlyGap).toLocaleString("en-IN")}`
-                              : "You're best ✓"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </>
+                        ) : (
+                          <div className="nb-flat flex h-32 w-full items-center justify-center bg-secondary/60 text-xs text-muted-foreground sm:w-44">
+                            Nothing earns here yet
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Gap */}
+                      <div className="sm:w-28 sm:shrink-0 sm:text-right">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Monthly gap
+                        </p>
+                        <p className="tnum text-lg font-black">
+                          {g.monthlyGap > 0
+                            ? `+₹${Math.round(g.monthlyGap).toLocaleString("en-IN")}`
+                            : "You're best ✓"}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {catalogWinners.slice(0, 6).map((w) => (
