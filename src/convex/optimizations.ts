@@ -93,6 +93,17 @@ Rules you MUST follow:
 - Be concise: 2-3 short paragraphs. No markdown headers, no bullet lists longer than 3 items.
 - Use Indian Rupee formatting like ₹1,100.`;
 
+const CHAT_SYSTEM_PROMPT = `You are Savvy's wallet assistant. You answer user questions about their cards, rewards, offers and savings using ONLY the JSON context provided (walletSnapshot with a catalog section ranking the best card per category across the full catalog).
+
+Rules you MUST follow:
+- Answer the user's actual question directly — do not reply with a generic refusal when the data needed IS present in the JSON.
+- For "which card is best for X" questions: use catalog.bestPerCategory and catalog.topUpgrades. Name the specific card and issuer from the JSON.
+- NEVER invent rates, caps, offers, point values or cards that are not in the JSON.
+- Numbers in your answer must come verbatim from the JSON — never compute new figures.
+- If the JSON genuinely lacks the data (e.g. live partner transfer charts), say: "Unable to calculate accurately with the available information."
+- Keep it under 120 words, friendly and practical. Suggest the relevant Savvy page (Purchase Optimizer, Rewards Vault, Insights) when useful.
+- Use Indian Rupee formatting like ₹1,100.`;
+
 export const explainRecommendation = action({
   args: {
     result: v.any(),
@@ -101,14 +112,20 @@ export const explainRecommendation = action({
   handler: async (ctx, args): Promise<{ explanation: string }> => {
     await getAuthUserId(ctx); // must be signed in
     const question = args.question?.slice(0, 300);
+
+    // Freeform questions carry a wallet/catalog snapshot (no `best` purchase
+    // result) — use the chat prompt so the AI actually answers them.
+    const isChat = question !== undefined && args.result?.context === "freeform wallet question";
+    const systemPrompt = isChat ? CHAT_SYSTEM_PROMPT : SYSTEM_PROMPT;
+
     const userPrompt = question
-      ? `User question: ${question}\n\nCalculation JSON:\n${JSON.stringify(args.result)}`
+      ? `User question: ${question}\n\nContext JSON:\n${JSON.stringify(args.result)}`
       : `Explain why this option won and break down each calculation step for the user.\n\nCalculation JSON:\n${JSON.stringify(args.result)}`;
 
     const response = await vly.ai.completion({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
@@ -119,9 +136,12 @@ export const explainRecommendation = action({
     });
 
     if (!response.success || !response.data) {
-      // Graceful degradation: a deterministic fallback instead of an error,
-      // so the UI always has an explanation grounded in the exact numbers.
-      return { explanation: deterministicExplanation(args.result) };
+      // Graceful degradation: deterministic answer instead of an error, so
+      // the UI always shows something grounded in the user's real data.
+      const fallback = isChat
+        ? chatFallback(args.result, question ?? "")
+        : deterministicExplanation(args.result);
+      return { explanation: fallback };
     }
     return { explanation: response.data.choices[0]?.message?.content ?? "" };
   },
@@ -140,5 +160,110 @@ function deterministicExplanation(r: {
   if (b.offer?.benefit && b.offer.benefit > 0) parts.push(`eligible offer worth ₹${Math.round(b.offer.benefit).toLocaleString("en-IN")}`);
   if (b.points && b.points > 0) parts.push(`${Math.round(b.points).toLocaleString("en-IN")} points/miles earned (deferred value)`);
   const benefitText = parts.length > 0 ? parts.join(", ") : "no direct benefit on this spend";
-  return `Using the ${b.issuer ?? ""} ${b.name ?? ""} gives a total estimated benefit of ₹${Math.round(b.totalBenefit ?? 0).toLocaleString("en-IN")} — ${benefitText}. Cashback and offers are money back now, so your effective cost is ₹${Math.round(b.effectiveCost ?? 0).toLocaleString("en-IN")}. Points are value earned on top and can be redeemed later. These are estimates from demo reward rules, not guaranteed savings.`;
+  return `Using the ${b.issuer ?? ""} ${b.name ?? ""} gives a total estimated benefit of ₹${Math.round(b.totalBenefit ?? 0).toLocaleString("en-IN")} — ${benefitText}. Cashback and offers are money back now, so your effective cost is ₹${Math.round(b.effectiveCost ?? 0).toLocaleString("en-IN")}. Points are value earned on top and can be redeemed later. These are estimates from catalog reward rules, not guaranteed savings.`;
+}
+
+/**
+ * Deterministic chat fallback for freeform questions — answers from the
+ * wallet/catalog snapshot the client already computed. Question-aware, so it
+ * never replies with the purchase-mode message.
+ */
+function chatFallback(r: {
+  walletSnapshot?: {
+    cards?: string[];
+    activeCards?: string[];
+    balances?: { program?: string; points?: number; expiresAt?: string | null; expiringPoints?: number | null }[];
+    totalPoints?: number;
+    cashbackBalance?: number;
+    plan?: string;
+    freeRunsUsed?: number;
+    runLimit?: number;
+    catalog?: {
+      totalCards?: number;
+      bestPerCategory?: { category?: string; bestCard?: string; issuer?: string; estBenefit?: number; sampleAmount?: number; ownedAlternative?: string | null; monthlyGapIfUpgraded?: number }[];
+      topUpgrades?: string[];
+    };
+  } | null;
+}, question: string): string {
+  const snap = r.walletSnapshot;
+  if (!snap) {
+    return "Your wallet is still loading. Please try again in a moment.";
+  }
+  const q = question.toLowerCase();
+  const lines: string[] = [];
+  const catalog = snap.catalog;
+
+  // Category questions: "dining", "fuel", "flights", "best card for ..."
+  if (catalog?.bestPerCategory?.length) {
+    const match = catalog.bestPerCategory.find((c) => {
+      const cat = (c.category ?? "").toLowerCase();
+      return (
+        (q.includes("dining") || q.includes("food") || q.includes("swiggy") || q.includes("zomato")) && cat.includes("dining") ||
+        (q.includes("fuel") || q.includes("petrol")) && cat.includes("fuel") ||
+        (q.includes("flight") || q.includes("air")) && cat.includes("flight") ||
+        (q.includes("hotel") || q.includes("stay")) && cat.includes("hotel") ||
+        (q.includes("grocer") || q.includes("bigbasket") || q.includes("zepto") || q.includes("blinkit")) && cat.includes("grocer") ||
+        (q.includes("amazon") || q.includes("flipkart") || q.includes("online")) && cat.includes("commerce") ||
+        (q.includes("movie") || q.includes("netflix") || q.includes("subscription")) && (cat.includes("subscription") || cat.includes("entertain")) ||
+        (q.includes("shop") || q.includes("myntra")) && cat.includes("shopping")
+      );
+    });
+    if (match?.bestCard) {
+      lines.push(
+        `For ${match.category ?? "this category"}, the catalog-wide winner across all ${catalog.totalCards ?? ""} cards is ${match.bestCard}${match.issuer ? ` (${match.issuer})` : ""} — an estimated ₹${(match.estBenefit ?? 0).toLocaleString("en-IN")} benefit on ₹${(match.sampleAmount ?? 0).toLocaleString("en-IN")} of monthly spend.`,
+      );
+      if (match.ownedAlternative) {
+        lines.push(
+          `Your best card there is ${match.ownedAlternative}${(match.monthlyGapIfUpgraded ?? 0) > 0 ? ` — upgrading could add about ₹${(match.monthlyGapIfUpgraded ?? 0).toLocaleString("en-IN")}/month` : " — you're already on the best option"}.`,
+        );
+      } else {
+        lines.push("You don't have a card earning in this category yet — adding the catalog winner could lift your returns.");
+      }
+    }
+  }
+
+  // Wasting / expiring rewards
+  if (q.includes("wasting") || q.includes("expir")) {
+    const expiring = (snap.balances ?? []).filter((b) => b.expiringPoints && b.expiringPoints > 0);
+    if (expiring.length > 0) {
+      lines.push(
+        `Points at risk: ${expiring.map((b) => `${(b.expiringPoints ?? 0).toLocaleString("en-IN")} points in ${b.program ?? "a program"} expiring ${b.expiresAt ?? "soon"}`).join("; ")}.`,
+      );
+    } else {
+      lines.push("Nothing in your wallet is flagged as expiring in the next 60 days.");
+    }
+  }
+
+  // Points / redemption
+  if (q.includes("point") || q.includes("redeem") || q.includes("use my")) {
+    lines.push(
+      `You're tracking ${(snap.totalPoints ?? 0).toLocaleString("en-IN")} points including ₹${(snap.cashbackBalance ?? 0).toLocaleString("en-IN")} cashback across ${(snap.balances ?? []).length} program(s). Open the Rewards Vault for per-program redemption scenarios and the exact math.`,
+    );
+  }
+
+  // Benefits / unused perks
+  if (q.includes("benefit") || q.includes("haven't") || q.includes("unused")) {
+    lines.push(
+      `Your wallet has ${(snap.cards ?? []).length} card(s), ${(snap.activeCards ?? []).length} active. Perk tracking (lounge visits, golf, milestones) lives on each card in the Wallet page — cards with lounge/UPI perks are flagged there.`,
+    );
+  }
+
+  // Usage / plan
+  if (q.includes("plan") || q.includes("limit") || q.includes("optimization left")) {
+    lines.push(
+      `You're on the ${snap.plan ?? "free"} plan: ${(snap.runLimit ?? 0) - (snap.freeRunsUsed ?? 0)} of ${(snap.runLimit ?? 0)} optimizations left this month.`,
+    );
+  }
+
+  // General fallback — say something useful, not the purchase message.
+  if (lines.length === 0) {
+    lines.push(
+      `You have ${(snap.cards ?? []).length} card(s) and ${(snap.totalPoints ?? 0).toLocaleString("en-IN")} points tracked. Ask me "which card is best for dining/fuel/flights", "am I wasting rewards", or "how can I use my points" — or run a Purchase Optimization for exact per-purchase math.`,
+    );
+    if (catalog?.topUpgrades?.length) {
+      lines.push(`Top upgrade opportunities right now: ${catalog.topUpgrades.join(" · ")}.`);
+    }
+  }
+
+  return lines.join("\n\n");
 }
