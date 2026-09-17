@@ -6,11 +6,17 @@ import {
   Calendar,
   Check,
   CreditCard,
+  Plane,
   Plus,
   Search,
+  Smile,
   Sparkles,
   Trash2,
+  UserRound,
   WalletCards,
+  Waves,
+  Wifi,
+  X,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -23,7 +29,9 @@ import {
   CATEGORIES,
   DEMO_CARDS,
   DEMO_PROGRAMS,
+  ROLE_LABELS,
   categoryEmoji,
+  checkEligibility,
   getDemoCard,
   getProgram,
 } from "@/lib/catalog";
@@ -35,8 +43,16 @@ const FILTERS = [
   { id: "travel", label: "Travel" },
   { id: "dining", label: "Dining" },
   { id: "fuel", label: "Fuel" },
-  { id: "lowfee", label: "Low fee" },
+  { id: "upi", label: "UPI cards" },
+  { id: "lounge", label: "Lounge access" },
+  { id: "golf", label: "Golf" },
+  { id: "ltf", label: "Lifetime free" },
+  { id: "student", label: "Student friendly" },
 ] as const;
+
+type FilterId = (typeof FILTERS)[number]["id"];
+
+const ROLES = ["student", "employee", "self_employed", "business_owner"] as const;
 
 export default function Wallet() {
   const walletState = useQuery(api.wallets.getWalletState, {});
@@ -46,14 +62,15 @@ export default function Wallet() {
   const setCardActive = useMutation(api.wallets.setCardActive);
   const addBalance = useMutation(api.wallets.addRewardBalance);
   const removeBalance = useMutation(api.wallets.removeRewardBalance);
-  const setSpend = useMutation(api.wallets.setMonthlySpend);
+  const setUserProfile = useMutation(api.wallets.setUserProfile);
 
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
+  const [filter, setFilter] = useState<FilterId>("all");
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [last4, setLast4] = useState("");
   const [seeding, setSeeding] = useState(false);
   const [spendDraft, setSpendDraft] = useState<string | null>(null);
+  const [incomeDraft, setIncomeDraft] = useState<string | null>(null);
 
   const ownedSlugs = useMemo(
     () => new Set(walletState?.cards.map((c) => c.slug) ?? []),
@@ -96,16 +113,39 @@ export default function Wallet() {
   const { cards, balances, profile } = walletState;
 
   const filteredCatalog = DEMO_CARDS.filter((c) => {
-    if (query && !`${c.issuer} ${c.name}`.toLowerCase().includes(query.toLowerCase()))
+    if (
+      query &&
+      !`${c.issuer} ${c.name}`.toLowerCase().includes(query.toLowerCase())
+    )
       return false;
-    if (filter === "all") return true;
-    if (filter === "cashback") return c.rewardType === "cashback";
-    if (filter === "travel")
-      return c.categories.includes("travel") || c.categories.includes("flights");
-    if (filter === "dining") return c.categories.includes("dining");
-    if (filter === "fuel") return c.categories.includes("fuel");
-    if (filter === "lowfee") return c.annualFee <= 1000;
-    return true;
+    switch (filter) {
+      case "all":
+        return true;
+      case "cashback":
+        return c.rewardType === "cashback";
+      case "travel":
+        return c.categories.includes("travel") || c.categories.includes("flights");
+      case "dining":
+        return c.categories.includes("dining");
+      case "fuel":
+        return c.categories.includes("fuel");
+      case "upi":
+        return c.perks?.upi === true;
+      case "lounge":
+        return !!c.perks?.domesticLounge || !!c.perks?.intlLounge;
+      case "golf":
+        return !!c.perks?.golf;
+      case "ltf":
+        return c.annualFee === 0;
+      case "student":
+        return (
+          c.eligibility.minMonthlyIncome === 0 ||
+          c.eligibility.minMonthlyIncome <= 20000 ||
+          c.eligibility.roles.includes("any")
+        );
+      default:
+        return true;
+    }
   });
 
   const handleAdd = async (slug: string) => {
@@ -113,7 +153,6 @@ export default function Wallet() {
       const res = await addCard({ slug, last4: last4 || undefined });
       if (res.added) {
         toast.success("Card added to your wallet");
-        setAddOpen(false);
         setLast4("");
       } else {
         toast.info("That card is already in your wallet");
@@ -147,9 +186,8 @@ export default function Wallet() {
               Your wallet
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Every card with its fee, reward structure and caps — data-driven
-              from the demo catalog. Toggle cards to include/exclude them from
-              optimization.
+              Browse {DEMO_CARDS.length} real Indian cards (demo terms), add
+              the ones you own, and toggle them in and out of optimization.
             </p>
           </div>
           <div className="flex gap-2">
@@ -165,11 +203,79 @@ export default function Wallet() {
           </div>
         </div>
 
-        {/* ADD PANEL */}
+        {/* PROFILE — role & income drive card-fit matching */}
+        <section className="nb-card p-5">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="nb-flat flex size-9 items-center justify-center bg-block-purple">
+                <UserRound className="size-4" />
+              </span>
+              <div>
+                <p className="font-display font-bold">Your profile</p>
+                <p className="text-xs text-muted-foreground">
+                  Optional — powers eligibility badges & card-fit matching.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={profile?.role ?? ""}
+                onChange={(e) =>
+                  void setUserProfile({
+                    role: e.target.value || undefined,
+                  })
+                }
+                className="h-10 cursor-pointer border-2 border-line bg-card px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select role…</option>
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+              <Input
+                value={incomeDraft ?? (profile?.monthlyIncome ? String(profile.monthlyIncome) : "")}
+                onChange={(e) => setIncomeDraft(e.target.value.replace(/[^\d]/g, ""))}
+                placeholder="Monthly income ₹"
+                className="tnum w-40"
+                inputMode="numeric"
+                onBlur={() => {
+                  const v = Number(incomeDraft ?? 0);
+                  if (incomeDraft !== null && v >= 0) {
+                    void setUserProfile({ monthlyIncome: v });
+                    toast.success("Income updated");
+                    setIncomeDraft(null);
+                  }
+                }}
+              />
+              <Input
+                value={spendDraft ?? (profile?.monthlySpend ? String(profile.monthlySpend) : "")}
+                onChange={(e) => setSpendDraft(e.target.value.replace(/[^\d]/g, ""))}
+                placeholder="Monthly spend ₹"
+                className="tnum w-40"
+                inputMode="numeric"
+                onBlur={() => {
+                  const v = Number(spendDraft ?? 0);
+                  if (spendDraft !== null && v >= 0) {
+                    void setUserProfile({ monthlySpend: v });
+                    toast.success("Monthly spend updated");
+                    setSpendDraft(null);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ADD PANEL — full catalog */}
         {addOpen && (
           <section className="nb-card p-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-56">
+            <h2 className="font-display text-lg font-bold">
+              Card catalog — {filteredCatalog.length} of {DEMO_CARDS.length} cards
+            </h2>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <div className="relative min-w-56 flex-1">
                 <Search className="absolute top-3 left-3 size-4 text-muted-foreground" />
                 <Input
                   value={query}
@@ -181,8 +287,8 @@ export default function Wallet() {
               <Input
                 value={last4}
                 onChange={(e) => setLast4(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                placeholder="Last 4 digits (optional)"
-                className="tnum w-44"
+                placeholder="Last 4 (optional)"
+                className="tnum w-36"
                 inputMode="numeric"
               />
             </div>
@@ -205,9 +311,14 @@ export default function Wallet() {
             <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filteredCatalog.map((card) => {
                 const owned = ownedSlugs.has(card.slug);
+                const fit = checkEligibility(
+                  card,
+                  profile?.role,
+                  profile?.monthlyIncome,
+                );
                 return (
                   <div key={card.slug} className="nb-card nb-lift flex flex-col p-4">
-                    <CardVisual card={card} last4={owned ? "4242" : undefined} />
+                    <CardVisual card={card} showPerks />
                     <p className="mt-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       {card.issuer}
                     </p>
@@ -215,18 +326,58 @@ export default function Wallet() {
                       {card.name}
                     </p>
                     <p className="mt-1 text-xs font-medium">{card.highlight}</p>
-                    <p className="tnum mt-2 text-xs text-muted-foreground">
+
+                    {/* perks detail */}
+                    <ul className="mt-2 space-y-1">
+                      {card.perks?.domesticLounge && (
+                        <li className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                          <Smile className="mt-0.5 size-3 shrink-0" />
+                          {card.perks.domesticLounge}
+                        </li>
+                      )}
+                      {card.perks?.intlLounge && (
+                        <li className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                          <Plane className="mt-0.5 size-3 shrink-0" />
+                          {card.perks.intlLounge}
+                        </li>
+                      )}
+                      {card.perks?.golf && (
+                        <li className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                          <Waves className="mt-0.5 size-3 shrink-0" />
+                          {card.perks.golf}
+                        </li>
+                      )}
+                      {card.perks?.upi && (
+                        <li className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                          <Wifi className="mt-0.5 size-3 shrink-0" />
+                          Pay via UPI apps (RuPay)
+                        </li>
+                      )}
+                    </ul>
+
+                    <div className="tnum mt-2 text-xs text-muted-foreground">
                       {card.annualFee === 0
-                        ? "No annual fee"
-                        : `₹${card.annualFee.toLocaleString("en-IN")} annual fee`}
-                    </p>
+                        ? "Lifetime free"
+                        : `₹${card.annualFee.toLocaleString("en-IN")} annual fee${card.renewalFeeWaiver ? ` · ${card.renewalFeeWaiver}` : ""}`}
+                    </div>
+
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {card.categories.slice(0, 3).map((cat) => (
                         <Badge key={cat} variant="secondary">
                           {categoryEmoji(cat)} {cat}
                         </Badge>
                       ))}
+                      {fit.eligible ? (
+                        <Badge variant="green">
+                          <Check className="size-3" /> Fits your profile
+                        </Badge>
+                      ) : (
+                        <Badge variant="orange" title={fit.reason}>
+                          <X className="size-3" /> {fit.reason}
+                        </Badge>
+                      )}
                     </div>
+
                     <Button
                       className="mt-3 w-full"
                       variant={owned ? "outline" : "default"}
@@ -267,8 +418,9 @@ export default function Wallet() {
                 Your wallet is empty
               </h3>
               <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                Add your first card to unlock purchase optimization, or load
-                the demo wallet to explore instantly.
+                Add your first card from the {DEMO_CARDS.length}-card catalog to
+                unlock purchase optimization — or load the demo wallet to
+                explore instantly.
               </p>
               <Button className="mt-5" onClick={() => setAddOpen(true)}>
                 <Plus className="size-4" /> Add your first card
@@ -284,6 +436,7 @@ export default function Wallet() {
                     <CardVisual
                       card={demo}
                       last4={c.cardNumberLast4}
+                      showPerks
                       className={c.active ? "" : "opacity-50 grayscale"}
                     />
                     <div className="mt-3 flex items-start justify-between gap-2">
@@ -320,7 +473,7 @@ export default function Wallet() {
                     </div>
                     <p className="mt-2 text-xs font-medium">{demo.highlight}</p>
                     <ul className="mt-2 space-y-1">
-                      {demo.rules.slice(0, 2).map((r) => (
+                      {demo.rules.slice(0, 3).map((r) => (
                         <li
                           key={r.id}
                           className="tnum text-[11px] leading-snug text-muted-foreground"
@@ -342,8 +495,7 @@ export default function Wallet() {
             Reward balances
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            User-provided balances, stored per program. Enter what you know —
-            everything else stays optional.
+            User-provided balances, stored per program.
           </p>
           {balances.length === 0 ? (
             <div className="nb-card mt-4 p-10 text-center">
@@ -405,9 +557,8 @@ export default function Wallet() {
             </div>
           )}
 
-          {/* add balance */}
           <div className="mt-4 flex flex-wrap gap-2">
-            {DEMO_PROGRAMS.filter((p) => !ownedSlugs.has(`prog-${p.id}`)).map((p) => {
+            {DEMO_PROGRAMS.map((p) => {
               const exists = balances.some((b) => b.programId === p.id);
               if (exists) return null;
               return (
@@ -419,7 +570,7 @@ export default function Wallet() {
                       points: 10000,
                       note: "User-provided (edit anytime)",
                     });
-                    toast.success(`${p.name} added with 10,000 pts — edit below anytime`);
+                    toast.success(`${p.name} added with 10,000 pts — edit anytime`);
                   }}
                   className="nb-flat nb-lift cursor-pointer bg-card px-3 py-2 text-xs font-bold uppercase tracking-wide"
                 >
@@ -430,42 +581,15 @@ export default function Wallet() {
           </div>
         </section>
 
-        {/* SPEND PROFILE */}
-        <section className="nb-card p-5">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="nb-flat flex size-9 items-center justify-center bg-block-blue">
-                <Calendar className="size-4" />
-              </span>
-              <div>
-                <p className="font-display font-bold">Monthly spend profile</p>
-                <p className="text-xs text-muted-foreground">
-                  Optional — powers category-cap math and insights. Demo
-                  categories: {CATEGORIES.slice(0, 4).map((c) => c.label).join(", ")}…
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                value={spendDraft ?? (profile?.monthlySpend ? String(profile.monthlySpend) : "")}
-                onChange={(e) => setSpendDraft(e.target.value.replace(/[^\d]/g, ""))}
-                placeholder="e.g. 40000"
-                className="tnum w-36"
-                inputMode="numeric"
-              />
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const v = Number(spendDraft ?? profile?.monthlySpend ?? 0);
-                  void setSpend({ monthlySpend: v });
-                  toast.success("Monthly spend updated");
-                  setSpendDraft(null);
-                }}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
+        {/* CATEGORY REFERENCE */}
+        <section className="nb-flat flex flex-wrap items-center gap-3 bg-card p-4 text-xs text-muted-foreground">
+          <Calendar className="size-4 shrink-0" />
+          <span className="font-semibold text-foreground">Categories:</span>
+          {CATEGORIES.map((c) => (
+            <span key={c.id}>
+              {c.emoji} {c.label}
+            </span>
+          ))}
         </section>
       </div>
     </AppShell>

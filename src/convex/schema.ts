@@ -49,10 +49,12 @@ const schema = defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
-  /** Optional monthly spend profile used for cap math. */
+  /** Optional monthly spend profile used for cap math + card-fit matching. */
   spendingProfile: defineTable({
     userId: v.string(),
     monthlySpend: v.number(),
+    role: v.optional(v.string()), // student | employee | self_employed | business_owner
+    monthlyIncome: v.optional(v.number()),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 

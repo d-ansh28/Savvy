@@ -158,3 +158,47 @@ export const setMonthlySpend = mutation({
     return { ok: true as const };
   },
 });
+
+export const setUserProfile = mutation({
+  args: {
+    role: v.optional(v.string()),
+    monthlyIncome: v.optional(v.number()),
+    monthlySpend: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    const VALID_ROLES = ["student", "employee", "self_employed", "business_owner"];
+    if (args.role && !VALID_ROLES.includes(args.role)) {
+      throw new Error("Invalid role");
+    }
+    if (
+      args.monthlyIncome !== undefined &&
+      (args.monthlyIncome < 0 || args.monthlyIncome > 100_000_000)
+    ) {
+      throw new Error("Income out of range");
+    }
+    const profile = await getProfileInternal(ctx, userId);
+    const patch: {
+      role?: string;
+      monthlyIncome?: number;
+      monthlySpend?: number;
+      updatedAt: number;
+    } = { updatedAt: Date.now() };
+    if (args.role !== undefined) patch.role = args.role;
+    if (args.monthlyIncome !== undefined) patch.monthlyIncome = args.monthlyIncome;
+    if (args.monthlySpend !== undefined) patch.monthlySpend = args.monthlySpend;
+    if (profile) {
+      await ctx.db.patch(profile._id, patch);
+    } else {
+      await ctx.db.insert("spendingProfile", {
+        userId,
+        monthlySpend: args.monthlySpend ?? 0,
+        role: args.role,
+        monthlyIncome: args.monthlyIncome,
+        updatedAt: Date.now(),
+      });
+    }
+    return { ok: true as const };
+  },
+});
