@@ -228,10 +228,10 @@ export default function Insights() {
                       </div>
 
                       {/* Catalog winner */}
-                      <div className="flex flex-1 items-center gap-3">
+                      <div className="flex flex-1 items-center gap-4">
                         <CardVisualMini
                           card={g.catalogBest.card}
-                          className="w-28 shrink-0"
+                          className="w-44 shrink-0"
                         />
                         <div className="min-w-0">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -252,7 +252,7 @@ export default function Insights() {
                           <>
                             <CardVisualMini
                               card={have.card}
-                              className="w-28 shrink-0"
+                              className="w-44 shrink-0"
                             />
                             <div className="min-w-0">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -265,7 +265,7 @@ export default function Insights() {
                             </div>
                           </>
                         ) : (
-                          <div className="nb-flat flex h-32 w-full items-center justify-center bg-secondary/60 text-xs text-muted-foreground sm:w-44">
+                          <div className="nb-flat flex aspect-[8/5] w-44 shrink-0 items-center justify-center bg-secondary/60 px-3 text-center text-xs text-muted-foreground">
                             Nothing earns here yet
                           </div>
                         )}
