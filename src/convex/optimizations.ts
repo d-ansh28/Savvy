@@ -8,8 +8,10 @@ import { vly } from "../lib/vly-integrations";
 import {
   type OptimizeResult,
   type PurchaseInput,
+  type WalletCard,
   optimizePurchase,
 } from "../lib/engine";
+import { createSavvyAgent, SAVVY_AGENT_LIMITS } from "../lib/savvyAgent";
 import { DEMO_CARDS, OFFERS, DEMO_MERCHANTS } from "../lib/catalog";
 import { runsLimitForPlan } from "../lib/pricing";
 
@@ -109,23 +111,25 @@ export const explainRecommendation = action({
     result: v.any(),
     question: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<{ explanation: string }> => {
+  handler: async (ctx, args): Promise<{ explanation: string; toolTrace: string[] }> => {
     await getAuthUserId(ctx); // must be signed in
     const question = args.question?.slice(0, 300);
 
     // Freeform questions carry a wallet/catalog snapshot (no `best` purchase
-    // result) — use the chat prompt so the AI actually answers them.
+    // result) — orchestrate them through the Strands agent, which can call
+    // the deterministic engine tools to fetch real data before answering.
     const isChat = question !== undefined && args.result?.context === "freeform wallet question";
-    const systemPrompt = isChat ? CHAT_SYSTEM_PROMPT : SYSTEM_PROMPT;
 
-    const userPrompt = question
-      ? `User question: ${question}\n\nContext JSON:\n${JSON.stringify(args.result)}`
-      : `Explain why this option won and break down each calculation step for the user.\n\nCalculation JSON:\n${JSON.stringify(args.result)}`;
+    if (isChat) {
+      return runSavvyAgent(question ?? "", args.result);
+    }
+
+    const userPrompt = `Explain why this option won and break down each calculation step for the user.\n\nCalculation JSON:\n${JSON.stringify(args.result)}`;
 
     const response = await vly.ai.completion({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
@@ -138,14 +142,78 @@ export const explainRecommendation = action({
     if (!response.success || !response.data) {
       // Graceful degradation: deterministic answer instead of an error, so
       // the UI always shows something grounded in the user's real data.
-      const fallback = isChat
-        ? chatFallback(args.result, question ?? "")
-        : deterministicExplanation(args.result);
-      return { explanation: fallback };
+      return { explanation: deterministicExplanation(args.result), toolTrace: [] };
     }
-    return { explanation: response.data.choices[0]?.message?.content ?? "" };
+    return {
+      explanation: response.data.choices[0]?.message?.content ?? "",
+      toolTrace: [],
+    };
   },
 });
+
+/**
+ * Runs the AWS Strands agent loop for a freeform wallet question.
+ *
+ * The agent (built in src/lib/savvyAgent.ts) decides which deterministic
+ * engine tools to call — optimize_purchase, best_cards_for_merchant,
+ * category_winners, fastest_earners, wallet_summary — observes the real
+ * computed numbers, then answers. Loop limits (turns/output tokens) are
+ * enforced by Strands; on any failure we degrade to the deterministic
+ * chatFallback so the user always gets a grounded answer.
+ */
+async function runSavvyAgent(
+  question: string,
+  result: { walletSnapshot?: WalletSnapshotShape | null },
+): Promise<{ explanation: string; toolTrace: string[] }> {
+  const snap = result?.walletSnapshot ?? null;
+
+  // Reconstruct wallet cards (slug + active) for the agent's tools.
+  const slugs: string[] = snap?.cards ?? [];
+  const activeSlugs = new Set<string>(snap?.activeCards ?? []);
+  const walletCards: WalletCard[] = slugs.map((slug) => ({
+    slug,
+    active: activeSlugs.has(slug),
+  }));
+
+  try {
+    const agent = createSavvyAgent({ walletCards });
+    const agentResult = await agent.invoke(question, { limits: SAVVY_AGENT_LIMITS });
+
+    const text = agentResult.lastMessage.content
+      .filter((b) => b.type === "textBlock")
+      .map((b) => ("text" in b ? b.text : ""))
+      .join("\n")
+      .trim();
+
+    // Tool trace: which deterministic tools the agent actually ran.
+    const toolTrace = agent.messages
+      .flatMap((m) => m.content)
+      .filter((b) => b.type === "toolUseBlock")
+      .map((b) => (b as { name: string }).name);
+
+    if (text) return { explanation: text, toolTrace };
+    return { explanation: chatFallback(result ?? {}, question), toolTrace };
+  } catch (e) {
+    console.error("Strands agent failed, using deterministic fallback:", e);
+    return { explanation: chatFallback(result ?? {}, question), toolTrace: [] };
+  }
+}
+
+interface WalletSnapshotShape {
+  cards?: string[];
+  activeCards?: string[];
+  balances?: { program?: string; points?: number; expiresAt?: string | null; expiringPoints?: number | null }[];
+  totalPoints?: number;
+  cashbackBalance?: number;
+  plan?: string;
+  freeRunsUsed?: number;
+  runLimit?: number;
+  catalog?: {
+    totalCards?: number;
+    bestPerCategory?: { category?: string; bestCard?: string; issuer?: string; estBenefit?: number; sampleAmount?: number; ownedAlternative?: string | null; monthlyGapIfUpgraded?: number }[];
+    topUpgrades?: string[];
+  };
+}
 
 /** Deterministic fallback explanation built ONLY from the engine's numbers. */
 function deterministicExplanation(r: {

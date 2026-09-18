@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { Brain, Loader2, Send, Sparkles, User } from "lucide-react";
+import { Brain, Loader2, Send, Sparkles, User, Wrench } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import {
 interface Msg {
   role: "user" | "assistant";
   text: string;
+  /** Deterministic engine tools the Strands agent ran for this answer. */
+  tools?: string[];
 }
 
 const QUICK_PROMPTS = [
@@ -68,7 +70,14 @@ export default function Assistant() {
         },
         question,
       });
-      setMessages((m) => [...m, { role: "assistant", text: res.explanation }]);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: res.explanation,
+          tools: res.toolTrace?.length ? res.toolTrace : undefined,
+        },
+      ]);
     } catch {
       // Grounded fallback: deterministic local answer, no AI needed.
       setMessages((m) => [
@@ -125,6 +134,22 @@ export default function Assistant() {
                   )}
                 >
                   {m.text}
+                  {m.tools && m.tools.length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t-2 border-line/60 pt-2">
+                      <Wrench className="size-3 text-muted-foreground" />
+                      {m.tools.map((t, ti) => (
+                        <span
+                          key={`${t}-${ti}`}
+                          className="nb-flat bg-card px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                      <span className="text-[10px] text-muted-foreground">
+                        verified by engine
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
