@@ -1,1 +1,0 @@
-import{j as o}from"./framer-motion-BvquiCEE.js";import{c as s}from"./SavvyLogo-Cv0cKq-E.js";function n({className:e,...r}){return o.jsx("div",{"data-slot":"skeleton",className:s("bg-secondary animate-pulse border-2 border-dashed border-line/30",e),...r})}export{n as S};
