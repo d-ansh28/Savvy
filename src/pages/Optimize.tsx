@@ -92,7 +92,7 @@ function MethodRow({
 }) {
   return (
     <div className="nb-card nb-lift flex items-center gap-4 p-4">
-      <div className="w-28 shrink-0 sm:w-36">
+      <div className="w-44 shrink-0 sm:w-52">
         <CardVisual card={getDemoCard(method.slug)!} compact />
       </div>
       <div className="min-w-0 flex-1">
