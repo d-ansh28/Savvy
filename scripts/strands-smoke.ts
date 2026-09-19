@@ -173,13 +173,40 @@ console.log("4. rewards_utilization tool & multi-turn seeding");
   if (rewardsTool) {
     // invoke() returns the unwrapped callback value — the tool's JSON string.
     const text = String(await rewardsTool.invoke({}));
-    // 48,000 MR pts @ ₹0.4 → vouchers/hotel/flight/trip all affordable; the
-    // tool must surface concrete claimable rewards, not generic percentages.
+    // 48,000 MR pts @ ₹0.4 → voucher ladder + travel conversions all live;
+    // the tool must surface concrete claimable rewards, not generic percents.
     check("returns concrete claimable rewards", text.includes("affordableNow") && text.includes("Amazon Pay"));
-    check("includes claim location + first step", text.includes("claimAt") && text.includes("firstStep"));
+    check("includes claim location + full steps", text.includes("claimAt") && text.includes("howToClaim"));
     check("uses the real balance + point value", text.includes("48000") && text.includes('"valuePerPoint":0.4'));
     check("surfaces expiring points", text.includes("8000"));
     check("lists fastest catalog earners", text.includes("earnFastestWith"));
+  }
+
+  // The planner itself: live offer boosters must be gated to owned cards.
+  {
+    const { redemptionOptionsForBalance } = await import("../src/lib/redemptions");
+    const today = new Date().toISOString().slice(0, 10);
+    const withCards = redemptionOptionsForBalance("amex-mr", 50_000, {
+      ownedCards: [{ slug: "hdfc-millennia" }],
+      todayISO: today,
+    });
+    const withoutCards = redemptionOptionsForBalance("amex-mr", 50_000, {
+      ownedCards: [],
+      todayISO: today,
+    });
+    const boostsWith = withCards.filter((o) => o.category === "offer").length;
+    const boostsWithout = withoutCards.filter((o) => o.category === "offer").length;
+    check("offer boosters gated to owned cards", boostsWith >= 0 && boostsWithout === 0);
+    check("voucher ladder scales with per-point value", withCards.some((o) => o.title.includes("₹1,000")));
+    check("travel conversion present for points program", withCards.some((o) => o.category === "flight"));
+    const cashback = redemptionOptionsForBalance("hdfc-cashback", 2_000, {
+      ownedCards: [{ slug: "hdfc-millennia" }],
+      todayISO: today,
+    });
+    check(
+      "cashback gets honest single-step statement credit",
+      cashback.some((o) => o.category === "statement" && o.claimSteps.length === 1),
+    );
   }
 
   // History seeding: context message + prior turns, in order.

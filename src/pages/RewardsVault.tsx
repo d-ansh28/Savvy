@@ -144,6 +144,8 @@ interface AdvisorProps {
   cardSlug: string | null;
   points: number;
   valid: boolean;
+  /** Wallet card slugs — gates live-offer boosters to cards the user owns. */
+  ownedSlugs: string[];
 }
 
 /**
@@ -151,7 +153,7 @@ interface AdvisorProps {
  * program, ranked redemption routes with estimated rupee values, expiry-risk
  * pointer and where to earn this currency fastest in the catalog.
  */
-function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
+function AdvisorPlan({ cardSlug, points, valid, ownedSlugs }: AdvisorProps) {
   // Hooks before any early return — keeps hook order stable across renders.
   const [openClaim, setOpenClaim] = useState<string | null>(null);
 
@@ -182,9 +184,12 @@ function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
     );
   }
 
-  // Deterministic redemption catalog: concrete rewards, claim steps, gaps.
+  // Deterministic redemption planner: concrete rewards, claim steps, gaps.
+  // Offer boosters are gated to the cards the user actually owns.
   const { affordable, nearlyThere } = program
-    ? rankedRedemptions(program.id, points)
+    ? rankedRedemptions(program.id, points, {
+        ownedCards: ownedSlugs.map((slug) => ({ slug })),
+      })
     : { affordable: [], nearlyThere: [] };
   const best = affordable[0];
   const earnFastest = program
@@ -256,9 +261,15 @@ function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 text-xs font-semibold">
                     {o.emoji} {o.title}
-                    <span className="tnum ml-1.5 font-normal text-muted-foreground">
-                      ({o.pointsRequired.toLocaleString("en-IN")} {kindLabel})
-                    </span>
+                    {o.pointsRequired > 0 ? (
+                      <span className="tnum ml-1.5 font-normal text-muted-foreground">
+                        ({o.pointsRequired.toLocaleString("en-IN")} {kindLabel})
+                      </span>
+                    ) : (
+                      <Badge variant="green" className="ml-1.5">
+                        Free — no points
+                      </Badge>
+                    )}
                   </span>
                   <span className="tnum shrink-0 text-xs font-bold">
                     ≈ ₹{o.estValue.toLocaleString("en-IN")}
@@ -266,6 +277,7 @@ function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
                 </div>
                 <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                   {o.example} · {o.whereToClaim}
+                  {o.offerBoost ? ` · ends ${o.offerBoost.endsAt}` : ""}
                 </p>
                 <button
                   onClick={() => setOpenClaim(openClaim === o.title ? null : o.title)}
@@ -276,8 +288,18 @@ function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
                 {openClaim === o.title && (
                   <ol className="mt-1.5 space-y-1 border-l-2 border-accent/50 pl-3">
                     {o.claimSteps.map((step, i) => (
-                      <li key={i} className="text-[11px] leading-relaxed">
-                        <span className="font-black">{i + 1}.</span> {step}
+                      <li
+                        key={i}
+                        className={cn(
+                          "text-[11px] leading-relaxed",
+                          o.claimSteps.length === 1 && "list-none border-l-0 pl-0",
+                        )}
+                      >
+                        {o.claimSteps.length > 1 && (
+                          <span className="font-black">{i + 1}.</span>
+ )}
+                        {" "}
+                        {step}
                       </li>
                     ))}
                   </ol>
@@ -551,6 +573,7 @@ export default function RewardsVault() {
                 cardSlug={advisorSlug}
                 points={Number(advisorPoints)}
                 valid={advisorSlug !== null && advisorPoints !== ""}
+                ownedSlugs={walletState.cards.map((c) => c.slug)}
               />
             </div>
           </section>
