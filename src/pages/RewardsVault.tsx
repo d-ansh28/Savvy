@@ -25,6 +25,7 @@ import { AppShell } from "@/components/AppShell";
 import { CardVisual } from "@/components/CardVisual";
 import { cn } from "@/lib/utils";
 import { bestEarnersForRewardKind } from "@/lib/engine";
+import { earnRateHint, rankedRedemptions } from "@/lib/redemptions";
 import {
   DEMO_CARDS,
   DEMO_PROGRAMS,
@@ -151,6 +152,9 @@ interface AdvisorProps {
  * pointer and where to earn this currency fastest in the catalog.
  */
 function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
+  // Hooks before any early return — keeps hook order stable across renders.
+  const [openClaim, setOpenClaim] = useState<string | null>(null);
+
   if (!cardSlug) {
     return (
       <div className="nb-flat flex items-center justify-center bg-secondary p-6 text-center text-sm text-muted-foreground">
@@ -178,12 +182,11 @@ function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
     );
   }
 
-  // Same deterministic math as the per-program scenarios.
-  const scenarios = program ? buildScenarios(program.id, points) : null;
-  const ranked = (scenarios?.scenarios ?? [])
-    .filter((s): s is Scenario & { estValue: number } => s.estValue !== null)
-    .sort((a, b) => b.estValue - a.estValue);
-  const best = ranked[0];
+  // Deterministic redemption catalog: concrete rewards, claim steps, gaps.
+  const { affordable, nearlyThere } = program
+    ? rankedRedemptions(program.id, points)
+    : { affordable: [], nearlyThere: [] };
+  const best = affordable[0];
   const earnFastest = program
     ? bestEarnersForRewardKind(program.kind, DEMO_CARDS, 3)
     : [];
@@ -203,14 +206,34 @@ function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
       {best ? (
         <div className="mt-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Best utilization
+            Best utilization — claim this first
           </p>
           <p className="font-display mt-0.5 text-xl font-bold tracking-tight">
-            {best.emoji} {best.label} — worth about ₹{best.estValue.toLocaleString("en-IN")}
+            {best.emoji} {best.title} — {best.pointsRequired.toLocaleString("en-IN")} {kindLabel} ≈ ₹{best.estValue.toLocaleString("en-IN")}
           </p>
-          <p className="tnum text-xs text-muted-foreground">
-            ₹{(Math.round((best.valuePerPoint ?? 0) * 100) / 100).toFixed(2)} per {kindLabel.replace(/s$/, "")} · {best.conditions}
+          <p className="text-xs text-muted-foreground">
+            {best.example} · Claim at {best.whereToClaim}
           </p>
+          {best.caveat && (
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              ⚠ {best.caveat}
+            </p>
+          )}
+          <button
+            onClick={() => setOpenClaim(openClaim === best.title ? null : best.title)}
+            className="nb-flat nb-lift mt-2 flex cursor-pointer items-center gap-1.5 bg-accent px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide text-accent-foreground"
+          >
+            <Compass className="size-3.5" /> How to claim
+          </button>
+          {openClaim === best.title && (
+            <ol className="mt-2 space-y-1.5 border-l-2 border-accent/50 pl-3">
+              {best.claimSteps.map((step, i) => (
+                <li key={i} className="text-xs leading-relaxed">
+                  <span className="font-black">{i + 1}.</span> {step}
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       ) : (
         <p className="mt-3 text-sm text-muted-foreground">
@@ -219,23 +242,79 @@ function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
         </p>
       )}
 
-      {ranked.length > 1 && (
-        <ul className="mt-4 space-y-2">
-          {ranked.slice(1).map((s, i) => (
-            <li key={s.label} className="flex items-center justify-between gap-3 border-t border-line/60 pt-2">
-              <span className="text-xs font-semibold">
-                {i + 2}. {s.emoji} {s.label}
-              </span>
-              <span className="tnum text-xs font-bold">
-                ≈ ₹{s.estValue.toLocaleString("en-IN")}
-              </span>
-            </li>
-          ))}
-          <li className="flex items-center justify-between gap-3 border-t border-line/60 pt-2 text-muted-foreground">
-            <span className="text-xs font-semibold">🤝 Transfer to partners</span>
-            <span className="text-[10px] font-bold uppercase">Verify live charts</span>
-          </li>
-        </ul>
+      {affordable.length > 1 && (
+        <div className="mt-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            What else your {points.toLocaleString("en-IN")} {kindLabel} can get right now
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {affordable.slice(1).map((o) => (
+              <li
+                key={o.title}
+                className="border-t border-line/60 pt-2"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 text-xs font-semibold">
+                    {o.emoji} {o.title}
+                    <span className="tnum ml-1.5 font-normal text-muted-foreground">
+                      ({o.pointsRequired.toLocaleString("en-IN")} {kindLabel})
+                    </span>
+                  </span>
+                  <span className="tnum shrink-0 text-xs font-bold">
+                    ≈ ₹{o.estValue.toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                  {o.example} · {o.whereToClaim}
+                </p>
+                <button
+                  onClick={() => setOpenClaim(openClaim === o.title ? null : o.title)}
+                  className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-accent hover:underline"
+                >
+                  <Compass className="size-3" /> How to claim
+                </button>
+                {openClaim === o.title && (
+                  <ol className="mt-1.5 space-y-1 border-l-2 border-accent/50 pl-3">
+                    {o.claimSteps.map((step, i) => (
+                      <li key={i} className="text-[11px] leading-relaxed">
+                        <span className="font-black">{i + 1}.</span> {step}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {nearlyThere.length > 0 && (
+        <div className="mt-4 border-t border-line/60 pt-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Nearly there — what a bit more unlocks
+          </p>
+          <ul className="mt-2 space-y-2">
+            {nearlyThere.map(({ option: o, pointsGap }) => {
+              const hint = program ? earnRateHint(program.kind, pointsGap, program.demoPointValue ?? 0) : null;
+              return (
+                <li key={o.title} className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold">
+                      {o.emoji} {o.title}
+                    </p>
+                    <p className="tnum text-[10px] text-muted-foreground">
+                      needs {o.pointsRequired.toLocaleString("en-IN")} {kindLabel} — {pointsGap.toLocaleString("en-IN")} short
+                      {hint ? ` · close it: ${hint.card} (${hint.monthsHint})` : ""}
+                    </p>
+                  </div>
+                  <span className="tnum shrink-0 text-xs font-bold">
+                    ≈ ₹{o.estValue.toLocaleString("en-IN")}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       {earnFastest.length > 0 && (
@@ -421,8 +500,9 @@ export default function RewardsVault() {
                   Points utilization advisor
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Pick a card, enter its points — see exactly how to get the
-                  most value out of them. Deterministic catalog math.
+                  Pick a card, enter its points — see the free flights, hotel
+                  nights, trips and vouchers they can get, plus step-by-step
+                  how to claim each one. Deterministic catalog math.
                 </p>
               </div>
             </div>

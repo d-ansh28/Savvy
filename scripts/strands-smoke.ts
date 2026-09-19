@@ -173,8 +173,11 @@ console.log("4. rewards_utilization tool & multi-turn seeding");
   if (rewardsTool) {
     // invoke() returns the unwrapped callback value — the tool's JSON string.
     const text = String(await rewardsTool.invoke({}));
-    check("returns program routes", text.includes("Partner vouchers"));
-    check("uses the real balance + point value", text.includes("48000") && text.includes("19200"));
+    // 48,000 MR pts @ ₹0.4 → vouchers/hotel/flight/trip all affordable; the
+    // tool must surface concrete claimable rewards, not generic percentages.
+    check("returns concrete claimable rewards", text.includes("affordableNow") && text.includes("Amazon Pay"));
+    check("includes claim location + first step", text.includes("claimAt") && text.includes("firstStep"));
+    check("uses the real balance + point value", text.includes("48000") && text.includes('"valuePerPoint":0.4'));
     check("surfaces expiring points", text.includes("8000"));
     check("lists fastest catalog earners", text.includes("earnFastestWith"));
   }

@@ -64,6 +64,7 @@ import {
   type WalletCard,
 } from "./engine";
 import { getProgram } from "./catalog";
+import { rankedRedemptions } from "./redemptions";
 
 // ---------------------------------------------------------------------------
 // 1. Custom Strands Model provider — vly.ai gateway
@@ -521,18 +522,27 @@ export function createSavvyTools(ctx: AgentWalletContext) {
             earnFastestWith,
           };
         }
+        // Concrete redemption catalog: what the balance can actually get,
+        // with claim location + first step. Same deterministic math as the
+        // Rewards Vault advisor (rankedRedemptions).
+        const { affordable, nearlyThere } = rankedRedemptions(program.id, balance);
         return {
           program: program.name,
           issuer: program.issuer,
           kind,
           balance,
           valuePerPoint: pv,
-          routes: [
-            { route: "Partner vouchers", estValue: Math.round(balance * pv) },
-            { route: "Statement credit", estValue: Math.round(balance * pv * 0.6) },
-            { route: "Travel portal", estValue: Math.round(balance * pv * 1.1) },
-          ],
-          note: "Route multipliers are catalog estimates; partner transfers need verification against live charts.",
+          affordableNow: affordable.slice(0, 5).map((o) => ({
+            reward: `${o.emoji} ${o.title} (${o.pointsRequired.toLocaleString("en-IN")} ${kind} ≈ ₹${o.estValue.toLocaleString("en-IN")})`,
+            example: o.example,
+            claimAt: o.whereToClaim,
+            firstStep: o.claimSteps[0] ?? null,
+          })),
+          nearlyThere: nearlyThere.map(({ option, pointsGap }) => ({
+            reward: `${option.emoji} ${option.title}`,
+            pointsGap,
+          })),
+          note: "Options come from the deterministic redemption catalog; values derive from the program's verified per-point value. Partner transfer charts are not included — verify live before transferring.",
           expiringPoints: b.expiringPoints ?? null,
           expiresAt: b.expiresAt ?? null,
           earnFastestWith,
