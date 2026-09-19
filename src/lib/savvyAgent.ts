@@ -57,10 +57,13 @@ import {
 import {
   bestCardsForPurchase,
   bestEarnersForCategory,
+  bestEarnersForRewardKind,
   categoryGapAnalysis,
   optimizePurchase,
+  type RewardBalance,
   type WalletCard,
 } from "./engine";
+import { getProgram } from "./catalog";
 
 // ---------------------------------------------------------------------------
 // 1. Custom Strands Model provider — vly.ai gateway
@@ -271,6 +274,8 @@ export class VlyModel extends Model<VlyModelConfig> {
 
 export interface AgentWalletContext {
   walletCards: WalletCard[];
+  /** Tracked reward balances — powers the rewards_utilization tool. */
+  balances?: RewardBalance[];
 }
 
 function json(value: unknown): string {
@@ -465,12 +470,88 @@ export function createSavvyTools(ctx: AgentWalletContext) {
     },
   });
 
+  /**
+   * Rewards-utilization advisor — the deterministic core of "how do I best
+   * use my points?". For every tracked balance: the program's per-point
+   * value, ranked redemption routes with estimated rupee values, points at
+   * expiry risk, and which catalog card earns that currency fastest.
+   */
+  const rewardsUtilizationTool = tool({
+    name: "rewards_utilization",
+    description:
+      "For each reward program balance the user tracks (points/miles/cashback): value per point, ranked redemption routes with estimated rupee values, points expiring soon, and which catalog card earns that currency fastest. Use for 'how should I use my points', 'am I wasting rewards', 'best way to redeem' questions.",
+    inputSchema: z.object({}),
+    callback: () => {
+      const rows = (ctx.balances ?? []).map((b) => {
+        const program = getProgram(b.programId);
+        const kind = program?.kind ?? "points";
+        const balance = b.points ?? 0;
+        /** Top catalog earners for this currency — where to EARN more. */
+        const earnFastestWith = bestEarnersForRewardKind(kind, DEMO_CARDS, 2).map(
+          (e) => ({
+            card: `${e.issuer} ${e.name}`,
+            valuePer10k: e.valuePer10k,
+            annualFee: e.annualFee,
+          }),
+        );
+        if (!program) return { programId: b.programId, points: b.points };
+        if (program.kind === "cashback") {
+          return {
+            program: program.name,
+            issuer: program.issuer,
+            kind,
+            balance: b.points,
+            rupeeValue: b.points,
+            bestRoute:
+              "Statement credit — auto-credits quarterly (₹1 cashback = ₹1)",
+            expiringPoints: b.expiringPoints ?? null,
+            expiresAt: b.expiresAt ?? null,
+            earnFastestWith,
+          };
+        }
+        const pv = program.demoPointValue;
+        if (!pv) {
+          return {
+            program: program.name,
+            issuer: program.issuer,
+            kind,
+            balance: b.points,
+            note: "Per-point value unavailable — verify with the issuer before redeeming.",
+            expiringPoints: b.expiringPoints ?? null,
+            earnFastestWith,
+          };
+        }
+        return {
+          program: program.name,
+          issuer: program.issuer,
+          kind,
+          balance,
+          valuePerPoint: pv,
+          routes: [
+            { route: "Partner vouchers", estValue: Math.round(balance * pv) },
+            { route: "Statement credit", estValue: Math.round(balance * pv * 0.6) },
+            { route: "Travel portal", estValue: Math.round(balance * pv * 1.1) },
+          ],
+          note: "Route multipliers are catalog estimates; partner transfers need verification against live charts.",
+          expiringPoints: b.expiringPoints ?? null,
+          expiresAt: b.expiresAt ?? null,
+          earnFastestWith,
+        };
+      });
+      return json({
+        programs: rows,
+        totalPoints: rows.reduce((s, r) => s + ((r as { balance?: number }).balance ?? 0), 0),
+      });
+    },
+  });
+
   return [
     optimizePurchaseTool,
     bestCardsForMerchantTool,
     categoryWinnersTool,
     fastestEarnersTool,
     walletSummaryTool,
+    rewardsUtilizationTool,
   ];
 }
 
@@ -483,7 +564,7 @@ export const SAVVY_AGENT_SYSTEM_PROMPT = `You are Savvy's AI wallet agent, orche
 Your job: answer the user's question about their cards, rewards, offers and savings as accurately as possible.
 
 Hard rules:
-- Ground EVERY number in tool results. Use your tools to fetch real data before answering questions about specific cards, categories or purchases.
+- Ground EVERY number in tool results or the USER WALLET CONTEXT message. Call a tool when the data isn't already in front of you — especially before answering questions about specific cards, categories, purchases or redemption routes.
 - NEVER invent card names, rates, caps, offers or point values. NEVER do arithmetic yourself — restate numbers from tool results verbatim.
 - If a tool returned the data, answer confidently and name the specific cards and issuers.
 - If no tool covers the question (e.g. live partner transfer charts), say: "Unable to calculate accurately with the available information."
@@ -509,6 +590,57 @@ export function createSavvyAgent(ctx: AgentWalletContext): Agent {
     tools: createSavvyTools(ctx),
     printer: false,
   });
+}
+
+/**
+ * A prior assistant/user turn from the client conversation. Plain text only —
+ * tool traces and internal blocks never cross the wire.
+ */
+export interface SavvyAgentMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
+/**
+ * Builds the opening context message (wallet + balances + plan) that gets
+ * seeded into a fresh agent as a user turn before the conversation history.
+ */
+export function buildSavvyContextMessage(ctx: AgentWalletContext): string {
+  const cards = ctx.walletCards.map((c) => {
+    const d = DEMO_CARDS.find((x) => x.slug === c.slug);
+    return `${d?.issuer ?? "?"} ${d?.name ?? c.slug}${c.active ? "" : " (inactive)"}`;
+  });
+  const balances = (ctx.balances ?? []).map((b) => {
+    const p = getProgram(b.programId);
+    const kind = p?.kind === "cashback" ? "cashback" : p?.kind === "miles" ? "miles" : "points";
+    const exp = b.expiringPoints ? ` — ${b.expiringPoints.toLocaleString("en-IN")} expiring ${b.expiresAt ?? "soon"}` : "";
+    return `${p?.name ?? b.programId}: ${(b.points ?? 0).toLocaleString("en-IN")} ${kind}${exp}`;
+  });
+  return [
+    "USER WALLET CONTEXT (verified catalog data — never contradict or re-derive these numbers):",
+    `- Cards owned (${cards.length}): ${cards.length > 0 ? cards.join("; ") : "none yet"}`,
+    `- Reward balances: ${balances.length > 0 ? balances.join("; ") : "none tracked yet"}`,
+    "- Use your tools for any analysis this summary doesn't already cover.",
+  ].join("\n");
+}
+
+/**
+ * Seeds a fresh agent with the wallet context and prior conversation turns so
+ * multi-turn questions like "why that one?" resolve against real history.
+ */
+export function seedAgentHistory(
+  agent: Agent,
+  ctx: AgentWalletContext,
+  history: SavvyAgentMessage[],
+): void {
+  const seed: Message[] = [
+    new Message({ role: "user", content: [new TextBlock(buildSavvyContextMessage(ctx))] }),
+  ];
+  for (const h of history) {
+    const text = h.text.trim();
+    if (text) seed.push(new Message({ role: h.role, content: [new TextBlock(text)] }));
+  }
+  agent.messages.push(...seed);
 }
 
 // --- test seam: allows the smoke test to swap the vly.ai gateway ----------

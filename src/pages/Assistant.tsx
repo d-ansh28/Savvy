@@ -24,9 +24,11 @@ interface Msg {
 
 const QUICK_PROMPTS = [
   "Which of my cards is best for dining?",
+  "How should I use my points?",
   "Am I wasting any rewards?",
-  "How can I use my points?",
-  "What benefits haven't I used?",
+  "Best card for Amazon ₹12,000?",
+  "Where am I leaving money on the table?",
+  "Which card earns miles fastest?",
 ];
 
 export default function Assistant() {
@@ -69,6 +71,12 @@ export default function Assistant() {
             "Answer ONLY from walletSnapshot (which includes a `catalog` section ranking the best card per category across the full catalog). Use catalog.bestPerCategory when the user asks which card is best for a category even if they don't own it. If the answer needs data that is not in the snapshot (live offers, partner transfers, real issuer terms), say: Unable to calculate accurately with the available information.",
         },
         question,
+        // Last few turns give the Strands agent conversational memory so
+        // follow-ups like "why that one?" resolve against real history.
+        history: messages
+          .filter((m) => m.text.trim().length > 0)
+          .slice(-6)
+          .map((m) => ({ role: m.role, text: m.text })),
       });
       setMessages((m) => [
         ...m,

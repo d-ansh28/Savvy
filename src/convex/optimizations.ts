@@ -11,7 +11,12 @@ import {
   type WalletCard,
   optimizePurchase,
 } from "../lib/engine";
-import { createSavvyAgent, SAVVY_AGENT_LIMITS } from "../lib/savvyAgent";
+import {
+  createSavvyAgent,
+  seedAgentHistory,
+  SAVVY_AGENT_LIMITS,
+  type SavvyAgentMessage,
+} from "../lib/savvyAgent";
 import { DEMO_CARDS, OFFERS, DEMO_MERCHANTS } from "../lib/catalog";
 import { runsLimitForPlan } from "../lib/pricing";
 
@@ -110,6 +115,14 @@ export const explainRecommendation = action({
   args: {
     result: v.any(),
     question: v.optional(v.string()),
+    history: v.optional(
+      v.array(
+        v.object({
+          role: v.union(v.literal("user"), v.literal("assistant")),
+          text: v.string(),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args): Promise<{ explanation: string; toolTrace: string[] }> => {
     await getAuthUserId(ctx); // must be signed in
@@ -121,7 +134,13 @@ export const explainRecommendation = action({
     const isChat = question !== undefined && args.result?.context === "freeform wallet question";
 
     if (isChat) {
-      return runSavvyAgent(question ?? "", args.result);
+      // Keep the last few turns so multi-turn questions ("why that one?")
+      // resolve against real history, not a memoryless one-shot.
+      const history: SavvyAgentMessage[] = (args.history ?? [])
+        .filter((h) => typeof h.text === "string" && h.text.trim().length > 0)
+        .slice(-6)
+        .map((h) => ({ role: h.role, text: h.text.slice(0, 600) }));
+      return runSavvyAgent(question ?? "", args.result, history);
     }
 
     const userPrompt = `Explain why this option won and break down each calculation step for the user.\n\nCalculation JSON:\n${JSON.stringify(args.result)}`;
@@ -164,6 +183,7 @@ export const explainRecommendation = action({
 async function runSavvyAgent(
   question: string,
   result: { walletSnapshot?: WalletSnapshotShape | null },
+  history: SavvyAgentMessage[] = [],
 ): Promise<{ explanation: string; toolTrace: string[] }> {
   const snap = result?.walletSnapshot ?? null;
 
@@ -175,8 +195,17 @@ async function runSavvyAgent(
     active: activeSlugs.has(slug),
   }));
 
+  // Reward balances feed the rewards_utilization tool.
+  const balances = (snap?.balances ?? []).map((b) => ({
+    programId: b.program ?? "",
+    points: b.points ?? 0,
+    expiresAt: b.expiresAt ?? undefined,
+    expiringPoints: b.expiringPoints ?? undefined,
+  }));
+
   try {
-    const agent = createSavvyAgent({ walletCards });
+    const agent = createSavvyAgent({ walletCards, balances });
+    seedAgentHistory(agent, { walletCards, balances }, history);
     const agentResult = await agent.invoke(question, { limits: SAVVY_AGENT_LIMITS });
 
     const text = agentResult.lastMessage.content

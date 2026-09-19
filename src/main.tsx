@@ -4,23 +4,65 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
-import React, { StrictMode, useEffect, lazy, Suspense } from "react";
+import React, {
+  StrictMode,
+  useEffect,
+  lazy,
+  Suspense,
+  Component,
+  type ReactNode,
+} from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { Button } from "@/components/ui/button";
 import "./index.css";
 
+/**
+ * Lazy-load a route with one automatic retry after a hard reload.
+ *
+ * After a new build is deployed, a signed-in tab still runs the OLD bundle and
+ * requests hashed chunks (e.g. Dashboard-DQapvb3Q.js) that no longer exist on
+ * the server → "TypeError: Failed to fetch dynamically imported module". This
+ * commonly hits right after creating an account, because that's the first time
+ * a chunk-only navigation (e.g. /dashboard) happens. The first failure reloads
+ * the page once to pick up the fresh index.html + chunk hashes; the session
+ * flag prevents reload loops if the chunk is genuinely unreachable.
+ */
+function lazyRetry<T extends { default: React.ComponentType<any> }>(
+  load: () => Promise<T>,
+): React.LazyExoticComponent<T["default"]> {
+  return lazy(() =>
+    load().catch((error: unknown) => {
+      const stale =
+        error instanceof TypeError &&
+        /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
+          error.message,
+        );
+      if (
+        stale &&
+        typeof window !== "undefined" &&
+        !window.sessionStorage.getItem("savvy:chunk-reload")
+      ) {
+        window.sessionStorage.setItem("savvy:chunk-reload", "1");
+        window.location.reload();
+      }
+      throw error;
+    }),
+  );
+}
+
 // Lazy load route components for better code splitting
-const Landing = lazy(() => import("./pages/Landing.tsx"));
-const AuthPage = lazy(() => import("./pages/Auth.tsx"));
-const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
-const Wallet = lazy(() => import("./pages/Wallet.tsx"));
-const Optimize = lazy(() => import("./pages/Optimize.tsx"));
-const Offers = lazy(() => import("./pages/Offers.tsx"));
-const RewardsVault = lazy(() => import("./pages/RewardsVault.tsx"));
-const Insights = lazy(() => import("./pages/Insights.tsx"));
-const Assistant = lazy(() => import("./pages/Assistant.tsx"));
-const Pricing = lazy(() => import("./pages/Pricing.tsx"));
-const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const Landing = lazyRetry(() => import("./pages/Landing.tsx"));
+const AuthPage = lazyRetry(() => import("./pages/Auth.tsx"));
+const Dashboard = lazyRetry(() => import("./pages/Dashboard.tsx"));
+const Wallet = lazyRetry(() => import("./pages/Wallet.tsx"));
+const Optimize = lazyRetry(() => import("./pages/Optimize.tsx"));
+const Offers = lazyRetry(() => import("./pages/Offers.tsx"));
+const RewardsVault = lazyRetry(() => import("./pages/RewardsVault.tsx"));
+const Insights = lazyRetry(() => import("./pages/Insights.tsx"));
+const Assistant = lazyRetry(() => import("./pages/Assistant.tsx"));
+const Pricing = lazyRetry(() => import("./pages/Pricing.tsx"));
+const NotFound = lazyRetry(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -29,6 +71,38 @@ function RouteLoading() {
       <div className="animate-pulse text-muted-foreground">Loading…</div>
     </div>
   );
+}
+
+/** Friendly fallback if a route chunk fails to load even after a reload. */
+class RouteErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
+          <div className="nb-card max-w-md p-8 text-center">
+            <h2 className="font-display text-xl font-bold">
+              Couldn't load this page
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Savvy was updated in the background. Reload to get the latest
+              version of the app.
+            </p>
+            <Button className="mt-5" onClick={() => window.location.reload()}>
+              Reload Savvy
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /** Silent error boundary — if VlyToolbar crashes it renders nothing instead of
@@ -94,6 +168,9 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 function RouteSyncer() {
   const location = useLocation();
   useEffect(() => {
+    // A completed navigation means chunks loaded fine — re-arm the one-shot
+    // stale-chunk reload so a future deploy can trigger it again.
+    window.sessionStorage.removeItem("savvy:chunk-reload");
     window.parent.postMessage(
       { type: "iframe-route-change", path: location.pathname },
       "*",
@@ -120,12 +197,12 @@ createRoot(document.getElementById("root")!).render(
     <RootErrorBoundary>
       <ToolbarErrorBoundary>
         <VlyToolbar />
-      </ToolbarErrorBoundary>
-      <ConvexAuthProvider client={convex}>
-        <BrowserRouter>
-          <RouteSyncer />
-          <Suspense fallback={<RouteLoading />}>
-            <Routes>
+      </ToolbarErrorBoundary>        <ConvexAuthProvider client={convex}>
+          <BrowserRouter>
+            <RouteSyncer />
+            <RouteErrorBoundary>
+              <Suspense fallback={<RouteLoading />}>
+                <Routes>
               <Route path="/" element={<Landing />} />
               <Route
                 path="/auth"
@@ -194,13 +271,13 @@ createRoot(document.getElementById("root")!).render(
                     <Pricing />
                   </RequireAuth>
                 }
-              />
-              <Route path="*" element={<NotFound />} />
+              />              <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense>
-        </BrowserRouter>
-        <Toaster />
-      </ConvexAuthProvider>
-    </RootErrorBoundary>
-  </StrictMode>,
-);
+              </Suspense>
+            </RouteErrorBoundary>
+          </BrowserRouter>
+          <Toaster />
+        </ConvexAuthProvider>
+      </RootErrorBoundary>
+    </StrictMode>,
+  );

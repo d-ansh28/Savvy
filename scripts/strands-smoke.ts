@@ -8,7 +8,13 @@
  */
 import { Agent, Model, Message, TextBlock } from "@strands-agents/sdk";
 import type { ModelStreamEvent, StreamOptions } from "@strands-agents/sdk";
-import { VlyModel, parseToolCallInternal, createSavvyTools } from "../src/lib/savvyAgent";
+import {
+  VlyModel,
+  parseToolCallInternal,
+  createSavvyTools,
+  seedAgentHistory,
+  buildSavvyContextMessage,
+} from "../src/lib/savvyAgent";
 
 let failures = 0;
 function check(name: string, cond: boolean, detail?: string) {
@@ -150,6 +156,56 @@ console.log("3. Agent loop (toolUse → deterministic tool → final answer)");
   const resultText = JSON.stringify((toolResults[0] as { content?: { text?: string }[] } | undefined)?.content ?? []);
   check("tool ran the REAL engine over the REAL catalog", resultText.includes("Amazon") && resultText.includes("totalEstimatedBenefit"));
   check("final answer present", result.lastMessage.content.some((b) => b.type === "textBlock" && "text" in b && b.text.length > 20));
+}
+
+// --- 4. rewards_utilization tool + history seeding -------------------------
+console.log("4. rewards_utilization tool & multi-turn seeding");
+{
+  const tools = createSavvyTools({
+    walletCards: [{ slug: "hdfc-millennia", active: true }],
+    balances: [
+      { programId: "amex-mr", points: 48000, expiresAt: "2026-10-31", expiringPoints: 8000 },
+    ],
+  });
+  const rewardsTool = tools.find((t) => t.toolSpec.name === "rewards_utilization");
+  check("rewards_utilization tool registered", rewardsTool !== undefined);
+
+  if (rewardsTool) {
+    // invoke() returns the unwrapped callback value — the tool's JSON string.
+    const text = String(await rewardsTool.invoke({}));
+    check("returns program routes", text.includes("Partner vouchers"));
+    check("uses the real balance + point value", text.includes("48000") && text.includes("19200"));
+    check("surfaces expiring points", text.includes("8000"));
+    check("lists fastest catalog earners", text.includes("earnFastestWith"));
+  }
+
+  // History seeding: context message + prior turns, in order.
+  const agent = new Agent({
+    model: new VlyModel({ modelId: "gpt-4o-mini" }),
+    systemPrompt: "test",
+    tools: createSavvyTools({ walletCards: [{ slug: "hdfc-millennia", active: true }] }),
+    printer: false,
+  });
+  seedAgentHistory(
+    agent,
+    { walletCards: [{ slug: "hdfc-millennia", active: true }] },
+    [
+      { role: "user", text: "Best card for dining?" },
+      { role: "assistant", text: "The HDFC Millennia wins for dining." },
+    ],
+  );
+  check(
+    "context message seeded first",
+    agent.messages[0]?.content.some(
+      (b) => b.type === "textBlock" && "text" in b && b.text.startsWith("USER WALLET CONTEXT"),
+    ),
+  );
+  check("history turns seeded in order", agent.messages.length === 3);
+  check(
+    "context message lists owned cards",
+    (agent.messages[0]?.content[0] as { text?: string } | undefined)?.text.includes("HDFC Bank Millennia") === true,
+  );
+  check("context builder works standalone", buildSavvyContextMessage({ walletCards: [] }).includes("none yet"));
 }
 
 console.log(failures === 0 ? "\nAll Strands smoke tests passed." : `\n${failures} FAILURE(S).`);

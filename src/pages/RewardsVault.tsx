@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Calculator,
   Check,
+  Compass,
   Gift,
   Info,
   Pencil,
@@ -18,11 +19,19 @@ import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/AppShell";
 import { CardVisual } from "@/components/CardVisual";
+import { cn } from "@/lib/utils";
 import { bestEarnersForRewardKind } from "@/lib/engine";
-import { DEMO_CARDS, DEMO_PROGRAMS, getProgram } from "@/lib/catalog";
+import {
+  DEMO_CARDS,
+  DEMO_PROGRAMS,
+  getDemoCard,
+  getProgram,
+  type RewardProgram,
+} from "@/lib/catalog";
 
 interface Scenario {
   label: string;
@@ -115,6 +124,147 @@ function buildScenarios(
   };
 }
 
+/**
+ * Deterministically matches a wallet card to its reward program: issuer +
+ * reward-kind first, then any program of the same kind. The advisor always
+ * shows the match so the user can verify it.
+ */
+function matchProgramForCard(cardSlug: string): RewardProgram | null {
+  const card = getDemoCard(cardSlug);
+  if (!card) return null;
+  return (
+    DEMO_PROGRAMS.find((p) => p.issuer === card.issuer && p.kind === card.rewardType) ??
+    DEMO_PROGRAMS.find((p) => p.kind === card.rewardType) ??
+    null
+  );
+}
+
+interface AdvisorProps {
+  cardSlug: string | null;
+  points: number;
+  valid: boolean;
+}
+
+/**
+ * The deterministic best-use plan for a chosen card's points: matched reward
+ * program, ranked redemption routes with estimated rupee values, expiry-risk
+ * pointer and where to earn this currency fastest in the catalog.
+ */
+function AdvisorPlan({ cardSlug, points, valid }: AdvisorProps) {
+  if (!cardSlug) {
+    return (
+      <div className="nb-flat flex items-center justify-center bg-secondary p-6 text-center text-sm text-muted-foreground">
+        Select one of your cards to build its utilization plan.
+      </div>
+    );
+  }
+  const card = getDemoCard(cardSlug);
+  const program = matchProgramForCard(cardSlug);
+  const kindLabel =
+    program?.kind === "cashback" ? "cashback" : program?.kind === "miles" ? "miles" : "points";
+
+  if (!valid || !(points > 0)) {
+    return (
+      <div className="nb-flat bg-secondary p-5">
+        <p className="font-display text-sm font-bold">
+          {card ? `${card.issuer} ${card.name}` : cardSlug}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {program
+            ? `Maps to ${program.name} — enter how many ${kindLabel} you're holding to see the plan.`
+            : "No matching reward program in the catalog — its points may be issuer-specific."}
+        </p>
+      </div>
+    );
+  }
+
+  // Same deterministic math as the per-program scenarios.
+  const scenarios = program ? buildScenarios(program.id, points) : null;
+  const ranked = (scenarios?.scenarios ?? [])
+    .filter((s): s is Scenario & { estValue: number } => s.estValue !== null)
+    .sort((a, b) => b.estValue - a.estValue);
+  const best = ranked[0];
+  const earnFastest = program
+    ? bestEarnersForRewardKind(program.kind, DEMO_CARDS, 3)
+    : [];
+
+  return (
+    <div className="nb-flat bg-secondary p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="font-display text-sm font-bold">
+          {card ? `${card.issuer} ${card.name}` : cardSlug}
+          {program ? ` → ${program.name}` : ""}
+        </p>
+        <Badge variant={program?.status === "user_provided" ? "blue" : "yellow"}>
+          {program?.status === "user_provided" ? "User provided" : "Estimated value"}
+        </Badge>
+      </div>
+
+      {best ? (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Best utilization
+          </p>
+          <p className="font-display mt-0.5 text-xl font-bold tracking-tight">
+            {best.emoji} {best.label} — worth about ₹{best.estValue.toLocaleString("en-IN")}
+          </p>
+          <p className="tnum text-xs text-muted-foreground">
+            ₹{(Math.round((best.valuePerPoint ?? 0) * 100) / 100).toFixed(2)} per {kindLabel.replace(/s$/, "")} · {best.conditions}
+          </p>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {program?.redemptionNote ??
+            "No redemption data — verify with the issuer before redeeming."}
+        </p>
+      )}
+
+      {ranked.length > 1 && (
+        <ul className="mt-4 space-y-2">
+          {ranked.slice(1).map((s, i) => (
+            <li key={s.label} className="flex items-center justify-between gap-3 border-t border-line/60 pt-2">
+              <span className="text-xs font-semibold">
+                {i + 2}. {s.emoji} {s.label}
+              </span>
+              <span className="tnum text-xs font-bold">
+                ≈ ₹{s.estValue.toLocaleString("en-IN")}
+              </span>
+            </li>
+          ))}
+          <li className="flex items-center justify-between gap-3 border-t border-line/60 pt-2 text-muted-foreground">
+            <span className="text-xs font-semibold">🤝 Transfer to partners</span>
+            <span className="text-[10px] font-bold uppercase">Verify live charts</span>
+          </li>
+        </ul>
+      )}
+
+      {earnFastest.length > 0 && (
+        <div className="mt-4 border-t border-line/60 pt-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Earn {kindLabel} fastest in the catalog
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {earnFastest.map((e) => (
+              <li key={e.slug} className="flex items-center justify-between gap-2 text-xs">
+                <span className="min-w-0 truncate font-semibold">{e.name}</span>
+                <span className="tnum shrink-0 font-bold text-muted-foreground">
+                  ₹{e.valuePer10k.toLocaleString("en-IN")}/₹10k
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+        <Info className="mt-0.5 size-3 shrink-0" />
+        Deterministic catalog math — verify rates in the issuer portal before
+        redeeming. Track this balance below to get expiry alerts.
+      </p>
+    </div>
+  );
+}
+
 export default function RewardsVault() {
   const walletState = useQuery(api.wallets.getWalletState, {});
   const addBalance = useMutation(api.wallets.addRewardBalance);
@@ -123,6 +273,9 @@ export default function RewardsVault() {
   const [editDraft, setEditDraft] = useState("");
   const [calcProgram, setCalcProgram] = useState<string | null>(null);
   const [calcPoints, setCalcPoints] = useState("");
+  // Points-utilization advisor: which wallet card + how many points in it.
+  const [advisorSlug, setAdvisorSlug] = useState<string | null>(null);
+  const [advisorPoints, setAdvisorPoints] = useState("");
 
   if (walletState === undefined) {
     return (
@@ -251,6 +404,74 @@ export default function RewardsVault() {
                   <Plus className="mr-1 inline size-3" /> {p.name}
                 </button>
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* POINTS UTILIZATION ADVISOR — pick a card, enter its points,
+            get the deterministic best-use plan */}
+        {walletState.cards.length > 0 && (
+          <section className="nb-card p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <span className="nb-flat flex size-9 items-center justify-center bg-block-green">
+                <Compass className="size-5" />
+              </span>
+              <div>
+                <h2 className="font-display text-lg font-bold tracking-tight">
+                  Points utilization advisor
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Pick a card, enter its points — see exactly how to get the
+                  most value out of them. Deterministic catalog math.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,20rem)_1fr]">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider">
+                    Card
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {walletState.cards.map((c) => {
+                      const card = getDemoCard(c.slug);
+                      return (
+                        <button
+                          key={c.slug}
+                          onClick={() => setAdvisorSlug(c.slug)}
+                          className={cn(
+                            "nb-flat cursor-pointer px-2.5 py-1.5 text-[11px] font-bold transition-colors",
+                            advisorSlug === c.slug
+                              ? "bg-accent text-accent-foreground"
+                              : "bg-card hover:bg-secondary",
+                          )}
+                        >
+                          {card?.issuer ?? c.slug}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="advisor-points" className="text-xs font-bold uppercase tracking-wider">
+                    Points / miles / cashback in this card
+                  </Label>
+                  <Input
+                    id="advisor-points"
+                    value={advisorPoints}
+                    onChange={(e) => setAdvisorPoints(e.target.value.replace(/[^\d]/g, ""))}
+                    placeholder="e.g. 48000"
+                    className="tnum"
+                    inputMode="numeric"
+                    disabled={!advisorSlug}
+                  />
+                </div>
+              </div>
+              <AdvisorPlan
+                cardSlug={advisorSlug}
+                points={Number(advisorPoints)}
+                valid={advisorSlug !== null && advisorPoints !== ""}
+              />
             </div>
           </section>
         )}
