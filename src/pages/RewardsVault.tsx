@@ -184,12 +184,9 @@ function AdvisorPlan({ cardSlug, points, valid, ownedSlugs }: AdvisorProps) {
     );
   }
 
-  // Deterministic redemption planner: concrete rewards, claim steps, gaps.
-  // Offer boosters are gated to the cards the user actually owns.
+  // Deterministic tiered award planner: concrete awards, claim steps, gaps.
   const { affordable, nearlyThere } = program
-    ? rankedRedemptions(program.id, points, {
-        ownedCards: ownedSlugs.map((slug) => ({ slug })),
-      })
+    ? rankedRedemptions(program.id, points)
     : { affordable: [], nearlyThere: [] };
   const best = affordable[0];
   const earnFastest = program
@@ -208,36 +205,83 @@ function AdvisorPlan({ cardSlug, points, valid, ownedSlugs }: AdvisorProps) {
         </Badge>
       </div>
 
-      {best ? (
+      {affordable.length > 0 ? (
         <div className="mt-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Best utilization — claim this first
+            {program?.kind === "cashback"
+              ? "Best utilization"
+              : `Award chart — what your ${points.toLocaleString("en-IN")} ${kindLabel} can book right now`}
           </p>
-          <p className="font-display mt-0.5 text-xl font-bold tracking-tight">
-            {best.emoji} {best.title} — {best.pointsRequired.toLocaleString("en-IN")} {kindLabel} ≈ ₹{best.estValue.toLocaleString("en-IN")}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {best.example} · Claim at {best.whereToClaim}
-          </p>
-          {best.caveat && (
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              ⚠ {best.caveat}
+          <ul className="mt-2 space-y-2">
+            {affordable.map((o, idx) => (
+              <li
+                key={o.title}
+                className={cn(
+                  "nb-flat bg-card p-3",
+                  idx === 0 && program?.kind !== "cashback" && "ring-1 ring-accent/40",
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold">
+                      {o.emoji} {o.title}
+                      {idx === 0 && program?.kind !== "cashback" && (
+                        <Badge variant="green" className="ml-1.5">Best value</Badge>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                      {o.example}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="tnum text-sm font-black">
+                      ≈ ₹{o.estValue.toLocaleString("en-IN")}
+                    </p>
+                    {o.pointsRequired > 0 && (
+                      <p className="tnum text-[10px] font-bold text-muted-foreground">
+                        {o.pointsRequired.toLocaleString("en-IN")} {kindLabel}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {o.caveat && (
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                    ⚠ {o.caveat}
+                  </p>
+                )}
+                <button
+                  onClick={() => setOpenClaim(openClaim === o.title ? null : o.title)}
+                  className="mt-1.5 flex cursor-pointer items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-accent hover:underline"
+                >
+                  <Compass className="size-3" /> How to claim
+                </button>
+                {openClaim === o.title &&
+                  (o.claimSteps.length === 1 ? (
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                      {o.claimSteps[0]}
+                    </p>
+                  ) : (
+                    <ol className="mt-1.5 space-y-1 border-l-2 border-accent/50 pl-3">
+                      {o.claimSteps.map((step, i) => (
+                        <li key={i} className="text-[11px] leading-relaxed">
+                          <span className="font-black">{i + 1}.</span> {step}
+                        </li>
+                      ))}
+                    </ol>
+                  ))}
+              </li>
+            ))}
+          </ul>
+          {program?.kind !== "cashback" && (
+            <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Sparkles className="size-3 shrink-0" />
+              <span>
+                Stack today's live merchant offers on top of any award —{" "}
+                <Link to="/offers" className="font-bold text-accent hover:underline">
+                  see live offers
+                </Link>
+              </span>
             </p>
-          )}
-          <button
-            onClick={() => setOpenClaim(openClaim === best.title ? null : best.title)}
-            className="nb-flat nb-lift mt-2 flex cursor-pointer items-center gap-1.5 bg-accent px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide text-accent-foreground"
-          >
-            <Compass className="size-3.5" /> How to claim
-          </button>
-          {openClaim === best.title && (
-            <ol className="mt-2 space-y-1.5 border-l-2 border-accent/50 pl-3">
-              {best.claimSteps.map((step, i) => (
-                <li key={i} className="text-xs leading-relaxed">
-                  <span className="font-black">{i + 1}.</span> {step}
-                </li>
-              ))}
-            </ol>
           )}
         </div>
       ) : (
@@ -245,69 +289,6 @@ function AdvisorPlan({ cardSlug, points, valid, ownedSlugs }: AdvisorProps) {
           {program?.redemptionNote ??
             "No redemption data — verify with the issuer before redeeming."}
         </p>
-      )}
-
-      {affordable.length > 1 && (
-        <div className="mt-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            What else your {points.toLocaleString("en-IN")} {kindLabel} can get right now
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {affordable.slice(1).map((o) => (
-              <li
-                key={o.title}
-                className="border-t border-line/60 pt-2"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 text-xs font-semibold">
-                    {o.emoji} {o.title}
-                    {o.pointsRequired > 0 ? (
-                      <span className="tnum ml-1.5 font-normal text-muted-foreground">
-                        ({o.pointsRequired.toLocaleString("en-IN")} {kindLabel})
-                      </span>
-                    ) : (
-                      <Badge variant="green" className="ml-1.5">
-                        Free — no points
-                      </Badge>
-                    )}
-                  </span>
-                  <span className="tnum shrink-0 text-xs font-bold">
-                    ≈ ₹{o.estValue.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                  {o.example} · {o.whereToClaim}
-                  {o.offerBoost ? ` · ends ${o.offerBoost.endsAt}` : ""}
-                </p>
-                <button
-                  onClick={() => setOpenClaim(openClaim === o.title ? null : o.title)}
-                  className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-accent hover:underline"
-                >
-                  <Compass className="size-3" /> How to claim
-                </button>
-                {openClaim === o.title && (
-                  <ol className="mt-1.5 space-y-1 border-l-2 border-accent/50 pl-3">
-                    {o.claimSteps.map((step, i) => (
-                      <li
-                        key={i}
-                        className={cn(
-                          "text-[11px] leading-relaxed",
-                          o.claimSteps.length === 1 && "list-none border-l-0 pl-0",
-                        )}
-                      >
-                        {o.claimSteps.length > 1 && (
-                          <span className="font-black">{i + 1}.</span>
- )}
-                        {" "}
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
 
       {nearlyThere.length > 0 && (

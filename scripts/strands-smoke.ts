@@ -182,30 +182,42 @@ console.log("4. rewards_utilization tool & multi-turn seeding");
     check("lists fastest catalog earners", text.includes("earnFastestWith"));
   }
 
-  // The planner itself: live offer boosters must be gated to owned cards.
+  // The tiered award planner itself: per-program ladders, deterministic math.
   {
     const { redemptionOptionsForBalance } = await import("../src/lib/redemptions");
-    const today = new Date().toISOString().slice(0, 10);
-    const withCards = redemptionOptionsForBalance("amex-mr", 50_000, {
-      ownedCards: [{ slug: "hdfc-millennia" }],
-      todayISO: today,
-    });
-    const withoutCards = redemptionOptionsForBalance("amex-mr", 50_000, {
-      ownedCards: [],
-      todayISO: today,
-    });
-    const boostsWith = withCards.filter((o) => o.category === "offer").length;
-    const boostsWithout = withoutCards.filter((o) => o.category === "offer").length;
-    check("offer boosters gated to owned cards", boostsWith >= 0 && boostsWithout === 0);
-    check("voucher ladder scales with per-point value", withCards.some((o) => o.title.includes("₹1,000")));
-    check("travel conversion present for points program", withCards.some((o) => o.category === "flight"));
-    const cashback = redemptionOptionsForBalance("hdfc-cashback", 2_000, {
-      ownedCards: [{ slug: "hdfc-millennia" }],
-      todayISO: today,
-    });
+    const amex = redemptionOptionsForBalance("amex-mr", 50_000);
+    const amexReturn = amex.find((o) => o.title === "Domestic return flight");
+    check("amex ladder: return flight tier present", amexReturn !== undefined);
+    check(
+      "points derived from per-point value (₹7,500 @ ₹0.4 = 18,750)",
+      amexReturn?.pointsRequired === 18_750,
+    );
+    check("amex ladder has claim steps", (amexReturn?.claimSteps.length ?? 0) >= 2);
+    const neu = redemptionOptionsForBalance("tata-neu", 50_000);
+    const neuReturn = neu.find((o) => o.title === "Domestic return flight");
+    check(
+      "same award costs fewer NeuCoins (₹7,500 @ ₹1.0 = 7,500)",
+      neuReturn?.pointsRequired === 7_500,
+    );
+    check(
+      "ladders differ per program (claims + unit)",
+      amexReturn?.whereToClaim !== neuReturn?.whereToClaim,
+    );
+    check("no spend-offer category in the planner", !amex.some((o) => (o.category as string) === "offer"));
+    const cashback = redemptionOptionsForBalance("hdfc-cashback", 2_000);
     check(
       "cashback gets honest single-step statement credit",
-      cashback.some((o) => o.category === "statement" && o.claimSteps.length === 1),
+      cashback.length === 1 &&
+        cashback[0].category === "statement" &&
+        cashback[0].claimSteps.length === 1,
+    );
+    const poor = redemptionOptionsForBalance("amex-mr", 3_000);
+    const poorAffordable = poor.filter((o) => o.pointsRequired <= 3_000);
+    check(
+      "small balance: only small vouchers affordable, big awards gated",
+      poorAffordable.length > 0 &&
+        poorAffordable.every((o) => o.category === "voucher") &&
+        poor.some((o) => o.pointsRequired > 3_000),
     );
   }
 

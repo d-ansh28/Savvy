@@ -497,12 +497,8 @@ export function createSavvyTools(ctx: AgentWalletContext) {
         );
         if (!program) return { programId: b.programId, points: b.points };
         if (program.kind === "cashback") {
-          // Cashback needs no redemption — but live offers on owned cards are
-          // still free value worth claiming alongside it.
-          const boosters = rankedRedemptions(program.id, b.points ?? 0, {
-            ownedCards: ctx.walletCards.map((c) => ({ slug: c.slug })),
-            todayISO: new Date().toISOString().slice(0, 10),
-          }).affordable.filter((o) => o.category === "offer");
+          // Cashback is already rupees — the honest answer is the auto-credit;
+          // there is no award ladder to redeem into.
           return {
             program: program.name,
             issuer: program.issuer,
@@ -511,13 +507,6 @@ export function createSavvyTools(ctx: AgentWalletContext) {
             rupeeValue: b.points,
             bestRoute:
               "Statement credit — auto-credits quarterly (₹1 cashback = ₹1), no action needed",
-            freeOfferBoosters: boosters.map((o) => ({
-              reward: o.title,
-              estValue: o.estValue,
-              claimAt: o.whereToClaim,
-              howToClaim: o.claimSteps,
-              deadline: o.offerBoost?.endsAt ?? null,
-            })),
             expiringPoints: b.expiringPoints ?? null,
             expiresAt: b.expiresAt ?? null,
             earnFastestWith,
@@ -535,14 +524,10 @@ export function createSavvyTools(ctx: AgentWalletContext) {
             earnFastestWith,
           };
         }
-        // Dynamic planner: what the balance can actually get NOW — vouchers,
-        // live offer boosters claimable with the user's own cards, and travel
-        // conversions — with claim location + steps. Same deterministic math
-        // as the Rewards Vault advisor (rankedRedemptions).
-        const { affordable, nearlyThere } = rankedRedemptions(program.id, balance, {
-          ownedCards: ctx.walletCards.map((c) => ({ slug: c.slug })),
-          todayISO: new Date().toISOString().slice(0, 10),
-        });
+        // Tiered award planner: the concrete awards this balance can get and
+        // exactly how to claim them. Same deterministic math as the Rewards
+        // Vault advisor (rankedRedemptions).
+        const { affordable, nearlyThere } = rankedRedemptions(program.id, balance);
         return {
           program: program.name,
           issuer: program.issuer,
@@ -550,20 +535,16 @@ export function createSavvyTools(ctx: AgentWalletContext) {
           balance,
           valuePerPoint: pv,
           affordableNow: affordable.slice(0, 8).map((o) => ({
-            reward:
-              o.pointsRequired > 0
-                ? `${o.emoji} ${o.title} (${o.pointsRequired.toLocaleString("en-IN")} ${kind} ≈ ₹${o.estValue.toLocaleString("en-IN")})`
-                : `${o.emoji} ${o.title} (FREE — no points, ≈ ₹${o.estValue.toLocaleString("en-IN")} extra value)`,
+            award: `${o.emoji} ${o.title} — ${o.pointsRequired.toLocaleString("en-IN")} ${kind === "miles" ? "miles" : "pts"} for ≈ ₹${o.estValue.toLocaleString("en-IN")}`,
             example: o.example,
             claimAt: o.whereToClaim,
             howToClaim: o.claimSteps,
-            deadline: o.offerBoost?.endsAt ?? null,
           })),
           nearlyThere: nearlyThere.map(({ option, pointsGap }) => ({
-            reward: `${option.emoji} ${option.title}`,
+            award: `${option.emoji} ${option.title}`,
             pointsGap,
           })),
-          note: "Options come from the deterministic redemption planner; values derive from the program's verified per-point value and today's live offer windows. Partner transfer charts are not included — verify live before transferring.",
+          note: "Awards come from the deterministic tier planner; points required derive from the program's verified per-point value. Partner transfer charts are not included — verify live before transferring.",
           expiringPoints: b.expiringPoints ?? null,
           expiresAt: b.expiresAt ?? null,
           earnFastestWith,

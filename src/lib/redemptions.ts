@@ -1,25 +1,22 @@
-import { getProgram, getDemoCard, OFFERS, getMerchant, type RewardKind } from "./catalog";
+import { getProgram, getMerchant, type RewardKind } from "./catalog";
 
 /**
- * DYNAMIC REDEMPTION PLANNER (deterministic)
- * ------------------------------------------
- * For a tracked reward balance, computes the concrete things those points can
- * get RIGHT NOW — and how to claim them — using only verified catalog data:
+ * TIERED AWARD PLANNER (deterministic)
+ * ------------------------------------
+ * For a tracked reward balance, computes the concrete awards those points can
+ * get and exactly how to claim them — as a per-program award ladder:
  *
- *  1. Voucher ladder      — face-value vouchers at the program's verified
- *                           per-point value (pointsRequired = value ÷ pv).
- *  2. Offer boosters      — LIVE rolling-window offers from the offers catalog
- *                           the user can claim with cards they own: free extra
- *                           rupee value on top of any redemption (0 points).
- *  3. Travel conversion   — points × pv × portal multiplier expressed as the
- *                           travel budget it becomes (flights/hotels/trips),
- *                           always labeled as a portal-rate conversion.
- *  4. Statement credit    — for cashback-kind programs, the honest single-step
- *                           answer (cashback auto-credits; there is nothing to
- *                           "claim").
+ *   international trip → weekend trip → domestic return flight →
+ *   hotel night → one-way flight → voucher ladder
  *
- * Everything is derived from the program's demoPointValue and today's live
- * offer windows. Nothing is hardcoded per-threshold; nothing is invented.
+ * Every award has a fixed realistic rupee value; the points required are
+ * DERIVED from the program's verified per-point value (pointsRequired =
+ * ceil(value ÷ demoPointValue)), so the same ladder needs different points
+ * per program — 18,750 MR points vs 7,500 NeuCoins for the same return
+ * flight. Nothing is invented: claim channels, examples and caveats come
+ * from the program's catalog entry. Cashback-kind programs get the honest
+ * single-step answer (cashback is already rupees; there is nothing to
+ * "redeem into").
  */
 
 export type RedemptionCategory =
@@ -27,284 +24,287 @@ export type RedemptionCategory =
   | "hotel"
   | "trip"
   | "voucher"
-  | "statement"
-  | "offer";
+  | "statement";
 
 export interface RedemptionOption {
   /** Program this option belongs to (DEMO_PROGRAMS.id). */
   programId: string;
-  /** What you actually get, e.g. "Amazon Pay voucher". */
+  /** The award itself, e.g. "Delhi → Bengaluru return flight". */
   title: string;
-  /** Concrete detail, e.g. "₹1,000 instant voucher — usable on anything". */
+  /** Concrete channel/detail, e.g. "via Amex Travel · IndiGo/Air India economy". */
   example: string;
   category: RedemptionCategory;
   emoji: string;
-  /** Points this option spends (0 = costs no points, e.g. an offer booster). */
+  /** Points/miles this award costs (0 only for cashback statement credit). */
   pointsRequired: number;
-  /** Deterministic est. rupee value of the option. */
+  /** Deterministic est. rupee value (pointsRequired × pv, or voucher face). */
   estValue: number;
   /** Where the redemption physically happens (portal/app). */
   whereToClaim: string;
-  /** Ordered, actionable claim steps (may be a single step). */
+  /** Ordered, actionable claim steps. */
   claimSteps: string[];
-  /** Extra conditions (caps, availability, deadlines). */
+  /** Caps, transfer-chart warnings, etc. */
   caveat?: string;
-  /** Set when the value comes from a live catalog offer. */
-  offerBoost?: {
-    merchant: string;
-    card: string;
-    offerTitle: string;
-    endsAt: string;
-  };
-}
-
-/** Voucher face values used to build each program's ladder (₹). */
-const VOUCHER_LADDER = [250, 500, 1_000, 2_000] as const;
-
-/** Travel-portal multiplier used by the scenario engine (catalog estimate). */
-const TRAVEL_PORTAL_MULTIPLIER = 1.1;
-
-export interface OwnedCardRef {
-  slug: string;
-}
-
-export interface RedemptionContext {
-  /** Wallet cards — gates offer boosters to offers the user can actually claim. */
-  ownedCards?: OwnedCardRef[];
-  /** ISO date for live-offer checks; defaults to today. */
-  todayISO?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Voucher ladder
+// Award tiers — fixed realistic rupee values; points derived per program
 // ---------------------------------------------------------------------------
 
-interface VoucherVenue {
-  merchantId: string;
-  label: string;
-  via: string;
-  steps: (faceValue: number) => string[];
+type AwardTierId =
+  | "trip-intl"
+  | "trip-weekend"
+  | "flight-return"
+  | "hotel-night"
+  | "flight-oneway";
+
+interface AwardTier {
+  id: AwardTierId;
+  /** Realistic rupee value of the award; points = ceil(value ÷ pv). */
+  value: number;
+  title: string;
+  emoji: string;
+  category: RedemptionCategory;
 }
 
-/** Where each program's vouchers are issued, from the verified catalog. */
-const VOUCHER_VENUES: Record<string, VoucherVenue> = {
+const AWARD_TIERS: AwardTier[] = [
+  { id: "trip-intl", value: 60_000, title: "International trip (3N)", emoji: "🌏", category: "trip" },
+  { id: "trip-weekend", value: 18_000, title: "Weekend trip (2N)", emoji: "🏝️", category: "trip" },
+  { id: "flight-return", value: 7_500, title: "Domestic return flight", emoji: "✈️", category: "flight" },
+  { id: "hotel-night", value: 5_000, title: "Hotel night", emoji: "🏨", category: "hotel" },
+  { id: "flight-oneway", value: 4_000, title: "One-way flight", emoji: "🛫", category: "flight" },
+];
+
+/** Voucher face values for the ladder (₹); points = ceil(face ÷ pv). */
+const VOUCHER_FACES = [500, 1_000, 2_000, 5_000] as const;
+
+// ---------------------------------------------------------------------------
+// Per-program claim channels — portal, concrete examples, claim steps
+// ---------------------------------------------------------------------------
+
+interface ProgramChannel {
+  /** Currency unit for this program. */
+  unit: string;
+  /** Concrete per-tier example, e.g. "Delhi → Bengaluru return, economy". */
+  examples: Partial<Record<AwardTierId, string>>;
+  /** Fallback example when a tier has no program-specific one. */
+  fallbackExample: string;
+  /** Where redemptions happen, e.g. "Amex Travel". */
+  portal: string;
+  /** What the travel inventory is, e.g. "IndiGo/Air India/Vistara economy". */
+  inventory: string;
+  /** Ordered claim steps; "{tier}" is replaced with the tier title. */
+  steps: (tierTitle: string) => string[];
+  /** Program-specific warning (caps, transfer charts…). */
+  caveat?: string;
+}
+
+const CHANNELS: Record<string, ProgramChannel> = {
   "amex-mr": {
-    merchantId: "amazon",
-    label: "Amazon Pay",
-    via: "Amex Offers → Membership Rewards → Vouchers",
-    steps: (v) => [
-      "Log in at americanexpress.com/en-in → Offers → Membership Rewards",
-      `Pick the Amazon Pay ₹${v.toLocaleString("en-IN")} voucher and confirm with MR points`,
-      "The voucher code arrives in your registered email within minutes",
+    unit: "MR points",
+    examples: {
+      "trip-intl": "e.g. 3N Thailand — flights + stay booked together in Amex Travel",
+      "trip-weekend": "e.g. 2N Goa — flight + hotel bundle in Amex Travel",
+      "flight-return": "Delhi → Bengaluru return, economy",
+      "hotel-night": "1N 4★ city hotel",
+      "flight-oneway": "Mumbai → Delhi one-way, economy",
+    },
+    fallbackExample: "booked in Amex Travel",
+    portal: "Amex Travel (travel.americanexpress.co.in)",
+    inventory: "airline/hotel inventory on the Amex Travel portal",
+    steps: (tier) => [
+      `Book the ${tier.toLowerCase()} in Amex Travel like a normal booking`,
+      "At payment, use 'Pay with Points' — MR points convert at the portal rate",
+      "Confirmation comes from the airline/hotel directly",
     ],
-  },
-  "hdfc-reward-points": {
-    merchantId: "amazon",
-    label: "SmartBuy voucher",
-    via: "HDFC SmartBuy → Redeem → Vouchers",
-    steps: (v) => [
-      "Log in to SmartBuy (offers.smartbuy.hdfcbank.com) with your HDFC card",
-      `Choose a partner voucher worth ₹${v.toLocaleString("en-IN")} and pay with Reward Points`,
-      "The code is issued instantly on-screen and by email",
-    ],
+    caveat:
+      "Amex also transfers MR points to 18+ airline/hotel partners at variable ratios — those can beat the portal, but verify the live chart before transferring.",
   },
   "axis-edge-miles": {
-    merchantId: "flipkart",
-    label: "EDGE REWARDZ voucher",
-    via: "Axis EDGE REWARDZ → Vouchers",
-    steps: (v) => [
-      "Log in to Axis Internet Banking → EDGE REWARDZ",
-      `Redeem EDGE Miles for the ₹${v.toLocaleString("en-IN")} voucher`,
-      "The voucher code is issued instantly on-screen",
+    unit: "EDGE Miles",
+    examples: {
+      "trip-intl": "e.g. 3N Dubai — flights + stay via the EDGE REWARDZ travel portal",
+      "trip-weekend": "e.g. 2N Goa — flight + hotel bundle via EDGE REWARDZ",
+      "flight-return": "Delhi → Bengaluru return, economy (or transfer miles to a partner airline)",
+      "hotel-night": "1N business hotel",
+      "flight-oneway": "Bengaluru → Mumbai one-way, economy",
+    },
+    fallbackExample: "booked in the EDGE REWARDZ travel portal",
+    portal: "EDGE REWARDZ travel portal",
+    inventory: "flights and hotels on the GrabAxis/EDGE travel portal",
+    steps: (tier) => [
+      "Log in to Axis Internet Banking → EDGE REWARDZ → Travel",
+      `Book the ${tier.toLowerCase()} and choose 'Redeem EDGE Miles' at payment`,
+      "The e-ticket/voucher arrives from the travel partner",
     ],
+    caveat:
+      "Partner airline transfers use variable ratios — they can beat the portal rate, but verify the live chart before transferring.",
+  },
+  "hdfc-reward-points": {
+    unit: "Reward Points",
+    examples: {
+      "trip-intl": "e.g. 3N Thailand via SmartBuy Travel",
+      "trip-weekend": "e.g. 2N Goa — flight + hotel via SmartBuy Travel",
+      "flight-return": "Delhi → Bengaluru return, economy",
+      "hotel-night": "1N city hotel",
+      "flight-oneway": "Mumbai → Goa one-way, economy",
+    },
+    fallbackExample: "booked in SmartBuy Travel",
+    portal: "SmartBuy Travel (offers.smartbuy.hdfcbank.com)",
+    inventory: "flights and hotels on the SmartBuy portal",
+    steps: (tier) => [
+      "Open SmartBuy → Travel and log in with your HDFC card",
+      `Book the ${tier.toLowerCase()} and select 'Redeem points' at payment`,
+      "Points debit at the SmartBuy rate; any balance goes to your card",
+    ],
+    caveat:
+      "SmartBuy redemption caps apply monthly and vary by card — the portal shows your remaining cap.",
+  },
+  "scapia-coins": {
+    unit: "Coins",
+    examples: {
+      "trip-intl": "e.g. 3N Thailand booking discounted with Coins",
+      "trip-weekend": "e.g. 2N Goa trip discounted with Coins",
+      "flight-return": "any domestic return — Coins apply as an instant discount",
+      "hotel-night": "any domestic stay — Coins apply as an instant discount",
+      "flight-oneway": "any one-way — Coins apply as an instant discount",
+    },
+    fallbackExample: "booked in the Scapia app",
+    portal: "Scapia app → Travel",
+    inventory: "flights and hotels bookable inside the Scapia app",
+    steps: (tier) => [
+      "Open the Scapia app → Travel",
+      `Book the ${tier.toLowerCase()} and apply Coins on the payment screen`,
+      "The discount applies instantly; pay the rest in-app",
+    ],
+    caveat:
+      "Coins redeem ONLY inside the Scapia app — no vouchers, no cash-out, no transfers.",
   },
   "tata-neu": {
-    merchantId: "bigbasket",
-    label: "BigBasket voucher",
-    via: "Tata Neu app → NeuCoins → Vouchers",
-    steps: (v) => [
-      "Open the Tata Neu app → NeuCoins section",
-      `Choose the BigBasket ₹${v.toLocaleString("en-IN")} voucher — NeuCoins debit 1:1`,
-      "The voucher credits instantly and applies at BigBasket checkout",
+    unit: "NeuCoins",
+    examples: {
+      "trip-intl": "e.g. 3N international trip via Air India + Taj Holidays",
+      "trip-weekend": "e.g. 2N Goa — Air India flight + hotel, one NeuCoins pot",
+      "flight-return": "Delhi → Bengaluru on Air India, booked in the Neu app",
+      "hotel-night": "1N Taj city hotel",
+      "flight-oneway": "Mumbai → Delhi on Air India",
+    },
+    fallbackExample: "booked inside the Tata Neu app",
+    portal: "Tata Neu app (Air India / Taj / BigBasket / Croma)",
+    inventory: "Air India flights, Taj hotels and the Tata ecosystem",
+    steps: (tier) => [
+      "Open the Tata Neu app → Travel",
+      `Book the ${tier.toLowerCase()}, then toggle 'Use NeuCoins' at checkout — 1 NeuCoin = ₹1`,
+      "NeuCoins debit instantly against the booking",
     ],
   },
 };
 
-/**
- * Voucher options for a program, derived from its verified per-point value:
- * the largest face values the balance can afford, plus the ladder context.
- */
-function voucherOptions(programId: string, pv: number): RedemptionOption[] {
-  const venue = VOUCHER_VENUES[programId];
-  if (!venue) return [];
-  const merchant = getMerchant(venue.merchantId);
-  const out: RedemptionOption[] = [];
-  for (const face of VOUCHER_LADDER) {
-    const pts = Math.ceil(face / pv);
-    out.push({
+/** Generic channel for future programs with a per-point value. */
+function genericChannel(issuer: string): ProgramChannel {
+  return {
+    unit: "points",
+    examples: {},
+    fallbackExample: "booked on the issuer travel portal",
+    portal: `${issuer} rewards portal → Travel`,
+    inventory: "flights and hotels on the issuer portal",
+    steps: (tier) => [
+      `Log in to the ${issuer} rewards portal → Travel`,
+      `Book the ${tier.toLowerCase()} and choose 'Pay with points'`,
+      "Points debit at the portal rate; the balance goes to your card",
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Planners
+// ---------------------------------------------------------------------------
+
+function travelAwards(programId: string, pv: number, kind: RewardKind): RedemptionOption[] {
+  const program = getProgram(programId);
+  if (!program) return [];
+  const ch = CHANNELS[programId] ?? genericChannel(program.issuer);
+  const tiers = kind === "miles"
+    ? AWARD_TIERS.filter((t) => t.id !== "hotel-night")
+    : AWARD_TIERS;
+  const out: RedemptionOption[] = tiers.map((tier) => {
+    const pointsRequired = Math.ceil(tier.value / pv);
+    const example = ch.examples[tier.id] ?? ch.fallbackExample;
+    return {
       programId,
-      title: `${venue.label} ₹${face.toLocaleString("en-IN")}`,
-      example: `${merchant?.name ?? venue.label} instant voucher — usable on anything in the cart`,
-      category: "voucher",
-      emoji: "🎁",
-      pointsRequired: pts,
-      estValue: face,
-      whereToClaim: venue.via,
-      claimSteps: venue.steps(face),
-    });
-  }
+      title: tier.title,
+      example: `${example} — via ${ch.portal}`,
+      category: tier.category,
+      emoji: tier.emoji,
+      pointsRequired,
+      estValue: Math.round(pointsRequired * pv),
+      whereToClaim: ch.portal,
+      claimSteps: ch.steps(tier.title),
+      caveat: ch.caveat,
+    };
+  });
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// Offer boosters — live offers claimable with cards the user owns
-// ---------------------------------------------------------------------------
-
-/** Replicates the engine's inclusive offer-window check. */
-function offerActive(startsAt: string, endsAt: string, todayISO: string): boolean {
-  return todayISO >= startsAt && todayISO <= endsAt;
-}
-
-/**
- * Live catalog offers the user can claim with owned cards, expressed as free
- * rupee value (0 points spent). Deterministic: benefit is the offer's flat
- * value, or its maxBenefit cap for percent offers ("up to", capped).
- */
-function offerBoosterOptions(
-  programId: string,
-  ownedCards: OwnedCardRef[],
-  todayISO: string,
-): RedemptionOption[] {
-  const resolved = ownedCards
-    .map((c) => getDemoCard(c.slug))
-    .filter((c): c is NonNullable<typeof c> => Boolean(c));
-  if (!resolved.length) return [];
-
-  const out: RedemptionOption[] = [];
-  for (const offer of OFFERS) {
-    if (!offerActive(offer.startsAt, offer.endsAt, todayISO)) continue;
-    // Issuer eligibility: at least one owned card from an eligible issuer.
-    if (
-      offer.eligibleIssuers &&
-      !resolved.some((c) =>
-        offer.eligibleIssuers!.some((sub) => c.issuer.toLowerCase().includes(sub.toLowerCase())),
-      )
-    ) {
-      continue;
-    }
-    const claimCard =
-      resolved.find((c) =>
-        offer.eligibleIssuers?.some((sub) => c.issuer.toLowerCase().includes(sub.toLowerCase())),
-      ) ?? resolved[0];
-    const merchant = getMerchant(offer.merchantId);
-    const isPercent = offer.percent !== undefined;
-    const benefit = isPercent ? offer.maxBenefit : (offer.flat ?? offer.maxBenefit);
-    if (!(benefit > 0)) continue;
-    out.push({
-      programId,
-      title: `${merchant?.name ?? offer.merchantId} offer — up to ₹${benefit.toLocaleString("en-IN")} extra`,
-      example: isPercent
-        ? `${offer.title}: ${Math.round(offer.percent! * 100)}% off with your ${claimCard.name} (capped at ₹${offer.maxBenefit.toLocaleString("en-IN")})`
-        : `${offer.title}: flat ₹${(offer.flat ?? benefit).toLocaleString("en-IN")} with your ${claimCard.name}`,
-      category: "offer",
-      emoji: "🔥",
-      pointsRequired: 0,
-      estValue: benefit,
-      whereToClaim: `${claimCard.issuer} app → Offers`,
-      claimSteps: [
-        `Open the ${claimCard.issuer} app → Offers → activate "${offer.title}"`,
-        `Pay at ${merchant?.name ?? offer.merchantId} with your ${claimCard.name} before ${offer.endsAt}`,
-        `Stack it with any points redemption from this program for extra total value`,
+function voucherAwards(programId: string, pv: number): RedemptionOption[] {
+  const program = getProgram(programId);
+  if (!program) return [];
+  const ch = CHANNELS[programId] ?? genericChannel(program.issuer);
+  const venueByProgram: Record<string, { label: string; merchantId: string; steps: (v: number) => string[] }> = {
+    "amex-mr": {
+      label: "Amazon Pay voucher",
+      merchantId: "amazon",
+      steps: (v) => [
+        "Log in at americanexpress.com/en-in → Offers → Membership Rewards",
+        `Pick the Amazon Pay ₹${v.toLocaleString("en-IN")} voucher and confirm with MR points`,
+        "The voucher code arrives in your registered email within minutes",
       ],
-      caveat: isPercent ? "Percent offers need a qualifying spend — the cap is the max possible benefit." : undefined,
-      offerBoost: {
-        merchant: merchant?.name ?? offer.merchantId,
-        card: `${claimCard.issuer} ${claimCard.name}`,
-        offerTitle: offer.title,
-        endsAt: offer.endsAt,
-      },
-    });
-  }
-  // Highest free value first; keep the top three so the plan stays readable.
-  return out.sort((a, b) => b.estValue - a.estValue).slice(0, 3);
-}
-
-// ---------------------------------------------------------------------------
-// Travel conversion — portal-rate budget from the points balance
-// ---------------------------------------------------------------------------
-
-function travelOptions(
-  programId: string,
-  pv: number,
-  points: number,
-  kind: RewardKind,
-): RedemptionOption[] {
-  const portalBudget = Math.round(points * pv * TRAVEL_PORTAL_MULTIPLIER);
-  if (!(portalBudget > 0)) return [];
-
-  const base: RedemptionOption[] = [
-    {
-      programId,
-      title: "Flight booking via travel portal",
-      example: `≈₹${portalBudget.toLocaleString("en-IN")} toward an IndiGo/Air India domestic ticket`,
-      category: "flight",
-      emoji: "✈️",
-      pointsRequired: points,
-      estValue: portalBudget,
-      whereToClaim: "Issuer travel portal → Flights",
-      claimSteps: [
-        "Open your issuer's travel portal and search flights like a normal booking",
-        "At payment choose 'Pay with points' — points convert at the portal rate",
-        "The e-ticket comes straight from the airline",
-      ],
-      caveat: `Portal rate ≈ ₹${(Math.round(pv * TRAVEL_PORTAL_MULTIPLIER * 100) / 100).toFixed(2)}/pt — check the exact rate at checkout.`,
     },
-  ];
-
-  if (kind !== "miles") {
-    base.push({
-      programId,
-      title: "Hotel stay via travel portal",
-      example: `≈₹${portalBudget.toLocaleString("en-IN")} toward a Taj/city-hotel booking`,
-      category: "hotel",
-      emoji: "🏨",
-      pointsRequired: points,
-      estValue: portalBudget,
-      whereToClaim: "Issuer travel portal → Hotels",
-      claimSteps: [
-        "Open your issuer's travel portal → Hotels, pick city + dates",
-        "Choose 'Pay with points' at checkout",
-        "The booking confirmation comes from the hotel partner",
+    "hdfc-reward-points": {
+      label: "SmartBuy voucher",
+      merchantId: "amazon",
+      steps: (v) => [
+        "Log in to SmartBuy (offers.smartbuy.hdfcbank.com) with your HDFC card",
+        `Choose a partner voucher worth ₹${v.toLocaleString("en-IN")} and pay with Reward Points`,
+        "The code is issued instantly on-screen and by email",
       ],
-      caveat: `Portal rate ≈ ₹${(Math.round(pv * TRAVEL_PORTAL_MULTIPLIER * 100) / 100).toFixed(2)}/pt — check the exact rate at checkout.`,
-    });
-  }
-
-  base.push({
+    },
+    "axis-edge-miles": {
+      label: "EDGE REWARDZ voucher",
+      merchantId: "flipkart",
+      steps: (v) => [
+        "Log in to Axis Internet Banking → EDGE REWARDZ → Vouchers",
+        `Redeem EDGE Miles for the ₹${v.toLocaleString("en-IN")} voucher`,
+        "The voucher code is issued instantly on-screen",
+      ],
+    },
+    "tata-neu": {
+      label: "BigBasket voucher",
+      merchantId: "bigbasket",
+      steps: (v) => [
+        "Open the Tata Neu app → NeuCoins section",
+        `Choose the BigBasket ₹${v.toLocaleString("en-IN")} voucher — NeuCoins debit 1:1`,
+        "The voucher credits instantly and applies at BigBasket checkout",
+      ],
+    },
+  };
+  const venue = venueByProgram[programId];
+  if (!venue) return [];
+  const merchant = getMerchant(venue.merchantId);
+  return VOUCHER_FACES.map((face) => ({
     programId,
-    title: "Trip combo (flight + hotel)",
-    example: `≈₹${portalBudget.toLocaleString("en-IN")} spread across one flight + stay itinerary`,
-    category: "trip",
-    emoji: "🏝️",
-    pointsRequired: points,
-    estValue: portalBudget,
-    whereToClaim: "Issuer travel portal → bundle booking",
-    claimSteps: [
-      "Build the flight + hotel itinerary in the travel portal",
-      "Redeem points against the total; pay any gap with your card",
-      "E-tickets and hotel vouchers arrive by email",
-    ],
-    caveat: `Same portal rate applies to every leg — ₹${(Math.round(pv * TRAVEL_PORTAL_MULTIPLIER * 100) / 100).toFixed(2)}/pt.`,
-  });
-
-  return base;
+    title: `${venue.label} ₹${face.toLocaleString("en-IN")}`,
+    example: `${merchant?.name ?? venue.label} instant voucher — usable on anything in the cart`,
+    category: "voucher" as const,
+    emoji: "🎁",
+    pointsRequired: Math.ceil(face / pv),
+    estValue: face,
+    whereToClaim: ch.portal.replace(" → Travel", " → Vouchers"),
+    claimSteps: venue.steps(face),
+  }));
 }
 
-// ---------------------------------------------------------------------------
-// Statement credit (cashback-kind programs)
-// ---------------------------------------------------------------------------
-
-function statementOption(programId: string, pv: number, points: number): RedemptionOption {
+function statementOption(programId: string, points: number): RedemptionOption {
   return {
     programId,
     title: "Statement credit",
@@ -312,7 +312,7 @@ function statementOption(programId: string, pv: number, points: number): Redempt
     category: "statement",
     emoji: "🧾",
     pointsRequired: 0,
-    estValue: Math.round(points * pv),
+    estValue: points,
     whereToClaim: "Automatic — no action needed",
     claimSteps: [
       "Nothing to claim: cashback auto-credits to your card statement quarterly (₹1 = ₹1)",
@@ -320,45 +320,30 @@ function statementOption(programId: string, pv: number, points: number): Redempt
   };
 }
 
-// ---------------------------------------------------------------------------
-// Planner
-// ---------------------------------------------------------------------------
-
 /**
- * All concrete redemption options for a balance, ranked best-first:
- * offer boosters (free value, 0 points), then best ₹-per-point spent, then
- * travel conversions and vouchers. Cashback programs get the honest
- * statement-credit answer plus any live offer boosters.
+ * The full award ladder for a balance: travel awards + voucher ladder ranked
+ * by rupee value (all convert at the program's verified per-point rate, so
+ * biggest-value-first is the best-utilization order). Cashback programs get
+ * only the honest statement credit.
  */
 export function redemptionOptionsForBalance(
   programId: string,
   points: number,
-  ctx: RedemptionContext = {},
 ): RedemptionOption[] {
   const program = getProgram(programId);
   if (!program) return [];
-  const todayISO = ctx.todayISO ?? new Date().toISOString().slice(0, 10);
-  const ownedCards = ctx.ownedCards ?? [];
-  const boosters = offerBoosterOptions(programId, ownedCards, todayISO);
 
   if (program.kind === "cashback") {
-    return [
-      statementOption(programId, 1, points),
-      ...boosters,
-    ];
+    return [statementOption(programId, points)];
   }
 
   const pv = program.demoPointValue;
-  if (!pv) return boosters;
+  if (!pv) return [];
 
-  const vouchers = voucherOptions(programId, pv);
-  const travel = travelOptions(programId, pv, points, program.kind);
-
-  const ranked = [...vouchers, ...travel].sort(
-    (a, b) => b.estValue / b.pointsRequired - a.estValue / a.pointsRequired || b.estValue - a.estValue,
-  );
-
-  return [...boosters, ...ranked];
+  return [
+    ...travelAwards(programId, pv, program.kind),
+    ...voucherAwards(programId, pv),
+  ].sort((a, b) => b.estValue - a.estValue || a.pointsRequired - b.pointsRequired);
 }
 
 export interface RankedRedemptions {
@@ -367,29 +352,20 @@ export interface RankedRedemptions {
 }
 
 /**
- * Ranked "what your points can get RIGHT NOW": affordable options first
- * (best value-to-points first), then the closest unaffordable options with
- * the exact points gap — deterministic, from the planner above.
+ * Ranked "what your points can get": affordable awards first (biggest value —
+ * they all convert at the same verified rate), then the closest unaffordable
+ * awards with the exact points gap.
  */
 export function rankedRedemptions(
   programId: string,
   points: number,
-  ctx: RedemptionContext = {},
 ): RankedRedemptions {
-  const options = redemptionOptionsForBalance(programId, points, ctx);
-  const affordable = options
-    .filter((o) => points >= o.pointsRequired)
-    .sort(
-      (a, b) =>
-        // Free-value options (0 points) always rank first; then ₹/point.
-        (b.pointsRequired === 0 ? Number.MAX_SAFE_INTEGER : b.estValue / b.pointsRequired) -
-          (a.pointsRequired === 0 ? Number.MAX_SAFE_INTEGER : a.estValue / a.pointsRequired) ||
-        b.estValue - a.estValue,
-    );
+  const options = redemptionOptionsForBalance(programId, points);
+  const affordable = options.filter((o) => points >= o.pointsRequired);
   const nearlyThere = options
     .filter((o) => o.pointsRequired > points)
     .sort((a, b) => a.pointsRequired - b.pointsRequired)
-    .slice(0, 3)
+    .slice(0, 2)
     .map((o) => ({ option: o, pointsGap: o.pointsRequired - points }));
   return { affordable, nearlyThere };
 }
@@ -405,8 +381,6 @@ export function redemptionCategoryLabel(category: RedemptionCategory): string {
       return "Trip";
     case "voucher":
       return "Voucher";
-    case "offer":
-      return "Offer boost";
     case "statement":
       return "Cash";
   }
