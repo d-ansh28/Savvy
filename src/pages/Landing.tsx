@@ -10,6 +10,15 @@ import {
   Wallet,
   Zap,
 } from "lucide-react";
+import { Link as RouterLink } from "react-router";
+
+function GuestButton(props: React.ComponentProps<typeof Button>) {
+  return (
+    <Button asChild variant="outline" {...props}>
+      <RouterLink to="/auth">{props.children}</RouterLink>
+    </Button>
+  );
+}
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SavvyLogo } from "@/components/SavvyLogo";
@@ -128,6 +137,11 @@ export default function Landing() {
             <Button asChild size="lg">
               <Link to="/auth?mode=signup">
                 Build My Wallet <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link to="/auth">
+                Try as guest <Sparkles className="size-4" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Eye, EyeOff, Loader2, LogIn, Mail, UserPlus } from "lucide-react";
+import { Eye, EyeOff, Loader2, LogIn, Mail, Sparkles, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,6 +40,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGuestLoading, setIsGuestLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!authLoading && isAuthenticated) {
@@ -70,6 +71,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
+  const handleGuestSignIn = async () => {
+    setIsGuestLoading(true);
+    setError(null);
+    try {
+      await signIn("guest", {});
+      navigate(redirect);
+    } catch (err) {
+      const raw =
+        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setError(clientAuthMessage(raw, "signIn"));
+      setIsGuestLoading(false);
+    }
+  };
+
   return (
     <div className="nb-grid-bg flex min-h-screen flex-col">
       <header className="border-b-2 border-line bg-background">
@@ -80,7 +95,28 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
       <div className="flex flex-1 items-center justify-center p-4">
         <div className="flex h-full flex-col items-center justify-center">
-          <Card className="nb-shadow min-w-[350px] pb-0">
+          {/* Guest entry — explore the product without signing up. */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={handleGuestSignIn}
+            disabled={isGuestLoading}
+          >
+            {isGuestLoading ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-2 size-4" />
+            )}
+            Continue as guest
+          </Button>
+
+          <p className="mt-2 text-xs text-muted-foreground">
+            No sign-up needed — explore the product. Create an account to save
+            your own cards and rewards.
+          </p>
+
+          <Card className="nb-shadow min-w-[350px] mt-6 pb-0">
             <CardHeader className="text-center">
               <CardTitle className="font-display text-2xl">
                 {mode === "signUp" ? "Create your account" : "Welcome back"}
